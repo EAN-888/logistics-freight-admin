@@ -107,8 +107,7 @@ select {
 }
 
 .topbar-note {
-  color: var(--muted);
-  font-size: 13px;
+  display: none;
 }
 
 .page-view {
@@ -646,16 +645,7 @@ tr.best-row td {
 }
 
 .source-pill {
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border: 1px solid rgba(31, 122, 91, 0.22);
-  border-radius: 999px;
-  padding: 5px 9px;
-  color: var(--green);
-  background: #f3faf6;
-  font-size: 12px;
+  display: none;
 }
 
 .order-metrics {
@@ -697,15 +687,62 @@ tr.best-row td {
 
 .shipment-actions {
   display: grid;
-  grid-template-columns: 1.2fr 1fr 1fr;
+  grid-template-columns: 1.2fr 1fr;
   gap: 10px;
   margin-bottom: 8px;
 }
 
+.shipment-actions #resetShipments {
+  display: none !important;
+}
+
+.orders-tools > .manual-form {
+  display: none !important;
+}
+
+.form-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 25, 20, 0.42);
+}
+
+.form-modal.hidden {
+  display: none;
+}
+
+.form-modal-panel {
+  width: min(1120px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(18, 30, 24, 0.26);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.modal-head h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
 .manual-form {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
   grid-template-columns: repeat(6, minmax(130px, 1fr));
 }
 
@@ -738,8 +775,14 @@ tr.best-row td {
   min-width: 1580px;
 }
 
+.carrier-table {
+  min-width: 1320px;
+}
+
 .shipment-table td,
-.shipment-table th {
+.shipment-table th,
+.carrier-table td,
+.carrier-table th {
   font-size: 13px;
 }
 
@@ -753,6 +796,38 @@ tr.best-row td {
   white-space: nowrap;
 }
 
+.carrier-import {
+  margin-bottom: 14px;
+}
+
+.carrier-filters label:has(#carrierKeyword) {
+  grid-column: span 2;
+}
+
+.carrier-table td:nth-child(2),
+.carrier-table td:nth-child(12) {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.small-action {
+  min-height: 30px;
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  padding: 5px 9px;
+  color: var(--green);
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.small-action:hover {
+  color: #fff;
+  background: var(--green);
+}
+
 @media (max-width: 1120px) {
   .admin-shell {
     grid-template-columns: 1fr;
@@ -764,7 +839,7 @@ tr.best-row td {
   }
 
   .side-nav {
-    grid-template-columns: repeat(5, minmax(100px, 1fr));
+    grid-template-columns: repeat(6, minmax(100px, 1fr));
     overflow-x: auto;
   }
 
