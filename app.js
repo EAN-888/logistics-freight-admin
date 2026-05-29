@@ -37,6 +37,7 @@ const state = {
   mode: "actual",
   channel: "all",
   rates: DEFAULT_RATES,
+  filteredCarrierRates: [],
   shipments: [],
   filteredShipments: [],
   shipmentSource: "",
@@ -51,6 +52,18 @@ const state = {
 const $ = id => document.getElementById(id);
 const currency = value => `¥${Math.round(value).toLocaleString("zh-CN")}`;
 const decimal = value => Number(value || 0);
+
+function cleanShipmentCreateArea() {
+  const toggleButton = $("toggleShipmentForm");
+  if (toggleButton) toggleButton.textContent = "新增";
+  $("resetShipments")?.remove();
+  document.querySelectorAll(".orders-tools > #manualShipmentForm, .orders-tools > .manual-form").forEach(form => {
+    if (!form.closest("#shipmentFormModal")) {
+      form.classList.add("hidden");
+      form.style.display = "none";
+    }
+  });
+}
 
 function rowToRate(row) {
   return {
@@ -332,6 +345,13 @@ function renderRules() {
   }).join("");
 }
 
+function refreshFreightViews() {
+  initOptions(true);
+  renderRules();
+  calculate();
+  renderCarrierManager();
+}
+
 async function handleImport(event) {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -354,9 +374,7 @@ function importRows(rows, sourceName, shouldPersist) {
   state.rates = rates;
   state.channel = "all";
   const saved = shouldPersist ? persistRates(sourceName) : false;
-  initOptions(false);
-  renderRules();
-  calculate();
+  refreshFreightViews();
   setImportStatus(`已导入 ${rates.length} 条价格，旧数据已清空并覆盖。${saved ? "已保存到本机浏览器。" : ""}`);
 }
 
@@ -525,10 +543,109 @@ async function resetRates() {
   const published = await loadPublishedRates();
   state.rates = published?.rates || DEFAULT_RATES;
   state.channel = "all";
-  initOptions(false);
-  renderRules();
-  calculate();
+  refreshFreightViews();
   setImportStatus(published ? `已恢复网站发布模板：${published.sourceName || "rates.json"}` : "已恢复内置模板数据。");
+}
+
+function populateCarrierFilters() {
+  const setOptions = (id, values, label) => {
+    const current = $(id).value;
+    const options = ["", ...unique(values.map(value => normalizeZone(value) || value).filter(Boolean)).sort((a, b) => String(a).localeCompare(String(b), "zh-CN"))];
+    $(id).innerHTML = options.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value || label)}</option>`).join("");
+    if (options.includes(current)) $(id).value = current;
+  };
+  setOptions("carrierChannel", state.rates.map(rate => rate.channel), "全部渠道");
+  setOptions("carrierCountry", state.rates.map(rate => rate.country), "全部国家");
+  setOptions("carrierZone", state.rates.map(rate => normalizeZone(rate.zone)), "全部分区");
+}
+
+function renderCarrierManager() {
+  if (!$("carrierBody")) return;
+  populateCarrierFilters();
+  filterCarrierRates();
+}
+
+function filterCarrierRates() {
+  if (!$("carrierBody")) return;
+  const keyword = $("carrierKeyword").value.trim().toLowerCase();
+  const channel = $("carrierChannel").value;
+  const country = $("carrierCountry").value;
+  const zone = normalizeZone($("carrierZone").value);
+  state.filteredCarrierRates = state.rates.map((rate, index) => ({ ...rate, index })).filter(rate => {
+    const haystack = [rate.name, rate.channel, rate.country, rate.zone, rate.eta, rate.surchargeText, rate.note].join(" ").toLowerCase();
+    return (!keyword || haystack.includes(keyword))
+      && (!channel || rate.channel === channel)
+      && (!country || rate.country === country)
+      && (!zone || normalizeZone(rate.zone) === zone);
+  }).sort((a, b) => String(a.name).localeCompare(String(b.name), "zh-CN") || a.minWeight - b.minWeight);
+  $("carrierRateCount").textContent = `${state.filteredCarrierRates.length.toLocaleString("zh-CN")} / ${state.rates.length.toLocaleString("zh-CN")} 条价格`;
+  renderCarrierTable();
+}
+
+function renderCarrierTable() {
+  const rows = state.filteredCarrierRates;
+  $("carrierBody").innerHTML = rows.length ? rows.map(rate => `
+    <tr>
+      <td><button type="button" class="small-action" data-edit-rate="${rate.index}">编辑</button></td>
+      <td>${escapeHtml(rate.name)}</td>
+      <td>${escapeHtml(rate.channel)}</td>
+      <td>${escapeHtml(rate.country)}</td>
+      <td>${escapeHtml(normalizeZone(rate.zone) || "全分区")}</td>
+      <td>${rate.minWeight}</td>
+      <td>${rate.stepWeight}</td>
+      <td>${rate.unitPrice}</td>
+      <td>${rate.fixedFee || ""}</td>
+      <td>${rate.taxIncluded ? "是" : "否"}</td>
+      <td>${escapeHtml(rate.eta)}</td>
+      <td>${escapeHtml(rate.surchargeText)}</td>
+    </tr>
+  `).join("") : `<tr><td colspan="12" class="unavailable">没有匹配的物流商价格。</td></tr>`;
+}
+
+function openCarrierEdit(index) {
+  const rate = state.rates[index];
+  if (!rate) return;
+  const form = $("carrierEditForm");
+  form.rateIndex.value = String(index);
+  form.name.value = rate.name || "";
+  form.channel.value = rate.channel || "";
+  form.country.value = rate.country || "";
+  form.zone.value = normalizeZone(rate.zone) || "";
+  form.minWeight.value = rate.minWeight || 0;
+  form.stepWeight.value = rate.stepWeight || 1;
+  form.unitPrice.value = rate.unitPrice || 0;
+  form.fixedFee.value = rate.fixedFee || 0;
+  form.taxIncluded.value = String(Boolean(rate.taxIncluded));
+  form.eta.value = rate.eta || "";
+  form.surchargeText.value = rate.surchargeText || "";
+  form.note.value = rate.note || "";
+  $("carrierEditPanel").classList.remove("hidden");
+  $("carrierEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function saveCarrierEdit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const index = Number(form.rateIndex.value);
+  if (!state.rates[index]) return;
+  state.rates[index] = normalizeRate({
+    name: form.name.value,
+    channel: form.channel.value,
+    country: form.country.value,
+    zone: form.zone.value,
+    minWeight: Number(form.minWeight.value || 0),
+    stepWeight: Number(form.stepWeight.value || 1),
+    unitPrice: Number(form.unitPrice.value || 0),
+    fixedFee: Number(form.fixedFee.value || 0),
+    taxIncluded: form.taxIncluded.value === "true",
+    eta: form.eta.value,
+    surchargeText: form.surchargeText.value,
+    note: form.note.value
+  });
+  persistRates("物流商管理手动维护");
+  $("carrierEditPanel").classList.add("hidden");
+  setImportStatus("已保存单条物流商价格修改，本机浏览器将使用修改后的数据。");
+  refreshFreightViews();
 }
 
 function setImportStatus(text) {
@@ -763,15 +880,38 @@ async function handleShipmentImport(event) {
 function setShipmentEditMode(record) {
   const form = $("manualShipmentForm");
   state.editingShipmentKey = record ? shipmentKey(record) : "";
-  form.classList.toggle("hidden", false);
+  $("shipmentFormTitle").textContent = record ? "编辑发货记录" : "新增发货记录";
   $("manualShipmentSubmit").textContent = record ? "保存修改" : "保存发货记录";
   $("cancelShipmentEdit").classList.toggle("hidden", !record);
-  if (!record) return;
-  Object.entries(record).forEach(([key, value]) => {
-    if (form.elements[key]) form.elements[key].value = value || "";
-  });
-  form.scrollIntoView({ behavior: "smooth", block: "center" });
+  form.reset();
+  if (record) {
+    Object.entries(record).forEach(([key, value]) => {
+      if (form.elements[key]) form.elements[key].value = value || "";
+    });
+  }
+  openShipmentFormModal();
   form.elements.shipDate?.focus();
+}
+
+function openShipmentFormModal() {
+  const modal = $("shipmentFormModal");
+  modal.classList.remove("hidden");
+  modal.style.display = "grid";
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+}
+
+function closeShipmentFormModal() {
+  state.editingShipmentKey = "";
+  $("manualShipmentForm").reset();
+  $("shipmentFormTitle").textContent = "新增发货记录";
+  $("manualShipmentSubmit").textContent = "保存发货记录";
+  $("cancelShipmentEdit").classList.add("hidden");
+  const modal = $("shipmentFormModal");
+  modal.classList.add("hidden");
+  modal.style.display = "none";
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
 }
 
 function addManualShipment(event) {
@@ -795,17 +935,8 @@ function addManualShipment(event) {
   state.editingShipmentKey = "";
   $("manualShipmentSubmit").textContent = "保存发货记录";
   $("cancelShipmentEdit").classList.add("hidden");
+  closeShipmentFormModal();
   $("shipmentImportStatus").textContent = wasEditing ? "已保存发货记录修改。" : "已保存 1 条发货记录。";
-}
-
-async function resetShipments() {
-  localStorage.removeItem(SHIPMENT_STORAGE_KEY);
-  const published = await loadPublishedShipments();
-  state.shipments = (published?.records || []).map(normalizeShipment);
-  state.shipmentSource = published?.sourceName || "默认发货记录";
-  populateShipmentFilters();
-  filterShipments();
-  $("shipmentImportStatus").textContent = "已恢复网站默认发货数据。";
 }
 
 async function bootstrapShipments() {
@@ -850,6 +981,22 @@ $("country").addEventListener("change", () => {
 $("copyCsv").addEventListener("click", copyCsv);
 $("templateFile").addEventListener("change", handleImport);
 $("resetRates").addEventListener("click", resetRates);
+$("carrierFilters").addEventListener("submit", event => {
+  event.preventDefault();
+  filterCarrierRates();
+});
+$("resetCarrierFilters").addEventListener("click", () => {
+  $("carrierFilters").reset();
+  filterCarrierRates();
+});
+$("carrierBody").addEventListener("click", event => {
+  const button = event.target.closest("[data-edit-rate]");
+  if (button) openCarrierEdit(Number(button.dataset.editRate));
+});
+$("carrierEditForm").addEventListener("submit", saveCarrierEdit);
+$("cancelCarrierEdit").addEventListener("click", () => {
+  $("carrierEditPanel").classList.add("hidden");
+});
 $("quoteForm").addEventListener("submit", event => {
   event.preventDefault();
   calculate();
@@ -877,24 +1024,18 @@ $("resetShipmentFilters").addEventListener("click", () => {
 });
 $("shipmentFile").addEventListener("change", handleShipmentImport);
 $("toggleShipmentForm").addEventListener("click", () => {
-  const form = $("manualShipmentForm");
-  const willShow = form.classList.contains("hidden");
-  if (willShow) {
-    setShipmentEditMode(null);
-  } else {
-    state.editingShipmentKey = "";
-    form.reset();
-    $("manualShipmentSubmit").textContent = "保存发货记录";
-    $("cancelShipmentEdit").classList.add("hidden");
-    form.classList.add("hidden");
-  }
+  setShipmentEditMode(null);
 });
 $("manualShipmentForm").addEventListener("submit", addManualShipment);
-$("cancelShipmentEdit").addEventListener("click", () => {
-  state.editingShipmentKey = "";
-  $("manualShipmentForm").reset();
-  $("manualShipmentSubmit").textContent = "保存发货记录";
-  $("cancelShipmentEdit").classList.add("hidden");
+$("closeShipmentForm").addEventListener("click", closeShipmentFormModal);
+$("cancelShipmentEdit").addEventListener("click", closeShipmentFormModal);
+$("shipmentFormModal").addEventListener("click", event => {
+  if (event.target.id === "shipmentFormModal") closeShipmentFormModal();
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && !$("shipmentFormModal").classList.contains("hidden")) {
+    closeShipmentFormModal();
+  }
 });
 $("shipmentBody").addEventListener("click", event => {
   const button = event.target.closest("[data-shipment-edit]");
@@ -902,7 +1043,6 @@ $("shipmentBody").addEventListener("click", event => {
   const record = state.shipments.find(item => shipmentKey(item) === button.dataset.shipmentEdit);
   if (record) setShipmentEditMode(record);
 });
-$("resetShipments").addEventListener("click", resetShipments);
 $("shipmentPageSize").addEventListener("change", event => {
   state.shipmentPageSize = Number(event.target.value) || 100;
   state.shipmentPage = 1;
@@ -919,6 +1059,7 @@ $("shipmentNextPage").addEventListener("click", () => {
 
 const pageTitles = {
   freight: "运费查询",
+  carriers: "物流商管理",
   orders: "订单管理",
   tracking: "物流跟踪",
   stats: "数据统计",
@@ -937,6 +1078,7 @@ document.querySelectorAll(".nav-item").forEach(button => {
 });
 
 async function bootstrap() {
+  cleanShipmentCreateArea();
   const stored = loadStoredRates();
   if (stored) {
     state.rates = stored.rates;
@@ -954,6 +1096,7 @@ async function bootstrap() {
   initOptions(false);
   renderRules();
   calculate();
+  renderCarrierManager();
   await bootstrapShipments();
 }
 
