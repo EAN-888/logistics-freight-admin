@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FBA 运费查询</title>
     <meta http-equiv="Cache-Control" content="no-store">
-    <link rel="stylesheet" href="styles.css?v=20260529-simple">
+    <link rel="stylesheet" href="styles.css?v=20260529-export">
   </head>
   <body>
     <div class="admin-shell">
@@ -213,6 +213,7 @@
                     <input id="templateFile" type="file" accept=".xlsx,.csv">
                     选择模板
                   </label>
+                  <button type="button" id="downloadRateTemplate" class="text-button">模板下载</button>
                   <button type="button" id="resetRates" class="text-button">恢复默认</button>
                 </div>
                 <p id="importStatus" class="import-status">当前使用内置模板。</p>
@@ -238,6 +239,7 @@
                 <div class="filter-actions">
                   <button type="submit" class="calc-button">查询</button>
                   <button type="button" id="resetCarrierFilters" class="text-button">重置</button>
+                  <button type="button" id="exportCarrierData" class="text-button">导出</button>
                 </div>
               </form>
             </section>
@@ -348,6 +350,7 @@
                 <div class="filter-actions">
                   <button type="submit" class="calc-button">查询</button>
                   <button type="button" id="resetShipmentFilters" class="text-button">重置</button>
+                  <button type="button" id="exportShipmentData" class="text-button">导出</button>
                 </div>
               </form>
             </section>
@@ -365,9 +368,15 @@
                   <input id="shipmentFile" type="file" accept=".xlsx,.csv">
                   批量导入发货数据
                 </label>
+                <button type="button" id="downloadShipmentTemplate" class="text-button">模板下载</button>
+                <label class="file-button">
+                  <input id="trackingFile" type="file" accept=".xlsx,.csv">
+                  批量导入运单号
+                </label>
+                <button type="button" id="downloadTrackingTemplate" class="text-button">模板下载</button>
                 <button type="button" id="toggleShipmentForm" class="text-button">新增</button>
               </div>
-              <p id="shipmentImportStatus" class="import-status">批量导入将按 FBA订单号 + 运单号 去重更新。</p>
+              <p id="shipmentImportStatus" class="import-status">发货数据按 FBA订单号 + 运单号 去重；运单号模板只需批次号或FBA订单号、运单号。</p>
 
               <div id="shipmentFormModal" class="form-modal hidden" aria-hidden="true" style="display: none;">
                 <div class="form-modal-panel" role="dialog" aria-modal="true" aria-labelledby="shipmentFormTitle">
@@ -463,6 +472,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=15"></script>
+    <script src="app.js?v=16"></script>
   </body>
 </html>
