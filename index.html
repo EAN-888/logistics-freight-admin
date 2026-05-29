@@ -179,6 +179,24 @@
             </table>
           </div>
 
+          <div class="pager" id="freightPager">
+            <div class="page-size-control">
+              <span>每页</span>
+              <select id="freightPageSize">
+                <option value="50">50</option>
+                <option value="100" selected>100</option>
+                <option value="200">200</option>
+                <option value="500">500</option>
+              </select>
+              <span>条</span>
+            </div>
+            <div class="pager-actions">
+              <button type="button" id="freightPrevPage" class="text-button">上一页</button>
+              <span id="freightPageInfo">第 1 / 1 页</span>
+              <button type="button" id="freightNextPage" class="text-button">下一页</button>
+            </div>
+          </div>
+
           <section class="detail-band">
             <h2>模板规则口径</h2>
             <div class="rule-grid" id="ruleGrid"></div>
@@ -304,8 +322,25 @@
                       <th>备注</th>
                     </tr>
                   </thead>
-                  <tbody id="shipmentBody"></tbody>
+              <tbody id="shipmentBody"></tbody>
                 </table>
+              </div>
+              <div class="pager" id="shipmentPager">
+                <div class="page-size-control">
+                  <span>每页</span>
+                  <select id="shipmentPageSize">
+                    <option value="50">50</option>
+                    <option value="100" selected>100</option>
+                    <option value="200">200</option>
+                    <option value="500">500</option>
+                  </select>
+                  <span>条</span>
+                </div>
+                <div class="pager-actions">
+                  <button type="button" id="shipmentPrevPage" class="text-button">上一页</button>
+                  <span id="shipmentPageInfo">第 1 / 1 页</span>
+                  <button type="button" id="shipmentNextPage" class="text-button">下一页</button>
+                </div>
               </div>
             </section>
           </div>
@@ -328,6 +363,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=7"></script>
+    <script src="app.js?v=8"></script>
   </body>
 </html>
