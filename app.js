@@ -57,7 +57,7 @@ function cleanShipmentCreateArea() {
   const toggleButton = $("toggleShipmentForm");
   if (toggleButton) toggleButton.textContent = "新增";
   $("resetShipments")?.remove();
-  document.querySelectorAll(".orders-tools > #manualShipmentForm, .orders-tools > .manual-form").forEach(form => {
+  document.querySelectorAll(".orders-tools > #manualShipmentForm").forEach(form => {
     if (!form.closest("#shipmentFormModal")) {
       form.classList.add("hidden");
       form.style.display = "none";
@@ -620,6 +620,8 @@ function openCarrierEdit(index) {
   form.surchargeText.value = rate.surchargeText || "";
   form.note.value = rate.note || "";
   $("carrierEditPanel").classList.remove("hidden");
+  form.classList.remove("hidden");
+  form.style.display = "";
   $("carrierEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
