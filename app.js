@@ -590,10 +590,7 @@ async function resetRates() {
 
 function populateCarrierFilters() {
   const setOptions = (id, values, label) => {
-    const current = $(id).value;
-    const options = ["", ...unique(values.map(value => normalizeZone(value) || value).filter(Boolean)).sort((a, b) => String(a).localeCompare(String(b), "zh-CN"))];
-    $(id).innerHTML = options.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value || label)}</option>`).join("");
-    if (options.includes(current)) $(id).value = current;
+    setSearchableOptions(id, values.map(value => normalizeZone(value) || value), label);
   };
   setOptions("carrierChannel", state.rates.map(rate => rate.channel), "全部渠道");
   setOptions("carrierCountry", state.rates.map(rate => rate.country), "全部国家");
@@ -706,6 +703,20 @@ function updatePager(prefix, total, page, pageSize) {
   if (info) info.textContent = `第 ${page} / ${totalPages} 页，共 ${total.toLocaleString("zh-CN")} 条`;
   if (prev) prev.disabled = page <= 1;
   if (next) next.disabled = page >= totalPages;
+}
+
+function setSearchableOptions(id, values, label) {
+  const input = $(id);
+  const list = $(`${id}List`);
+  const current = input.value;
+  const options = unique(values.filter(Boolean)).sort((a, b) => String(a).localeCompare(String(b), "zh-CN"));
+  input.placeholder = label;
+  if (list) {
+    list.innerHTML = options.map(value => `<option value="${escapeHtml(value)}"></option>`).join("");
+  } else {
+    input.innerHTML = ["", ...options].map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value || label)}</option>`).join("");
+  }
+  input.value = current;
 }
 
 function loadStoredShipments() {
@@ -877,10 +888,7 @@ function updateShipmentTrackingNumbers(rows) {
 
 function populateShipmentFilters() {
   const setOptions = (id, values, label) => {
-    const current = $(id).value;
-    const options = ["", ...unique(values).sort((a, b) => String(a).localeCompare(String(b), "zh-CN"))];
-    $(id).innerHTML = options.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value || label)}</option>`).join("");
-    if (options.includes(current)) $(id).value = current;
+    setSearchableOptions(id, values, label);
   };
   setOptions("shipOperator", state.shipments.map(r => r.operator), "全部运营");
   setOptions("shipCountry", state.shipments.map(r => r.country), "全部国家");
