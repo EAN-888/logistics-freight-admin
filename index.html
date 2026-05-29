@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FBA 运费重量对比</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="sidebar" aria-label="物流后台菜单">
+        <div class="sidebar-brand">
+          <strong>物流管理台</strong>
+          <span>Freight Ops</span>
+        </div>
+        <nav class="side-nav">
+          <button type="button" class="nav-item active" data-page="freight">运费试算</button>
+          <button type="button" class="nav-item" data-page="orders">订单管理</button>
+          <button type="button" class="nav-item" data-page="tracking">物流跟踪</button>
+          <button type="button" class="nav-item" data-page="stats">数据统计</button>
+          <button type="button" class="nav-item" data-page="settings">系统设置</button>
+        </nav>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Logistics Console</p>
+            <h1 id="pageTitle">运费试算</h1>
+          </div>
+          <div class="topbar-note">FBA 头程 / 快递 / 卡航价格对比</div>
+        </header>
+
+        <section id="freightPage" class="page-view active">
+          <div class="workspace">
+            <aside class="control-panel" aria-label="运费计算条件">
+          <div class="brand-block">
+            <p class="eyebrow">FBA Freight Compare</p>
+            <h2>各渠道运费重量对比</h2>
+            <p>按模板价格自动匹配国家、分区、重量档位与货物附加费，快速筛出更优头程方案。</p>
+          </div>
+
+          <form id="quoteForm" class="quote-form">
+            <section class="import-box" aria-label="导入运费模板">
+              <div>
+                <strong>导入最新运费模板</strong>
+                <p>支持当前表头的 .xlsx / .csv；导入后会清空旧价格并使用最新数据。</p>
+              </div>
+              <label class="file-button">
+                <input id="templateFile" type="file" accept=".xlsx,.csv">
+                选择模板
+              </label>
+              <button type="button" id="resetRates" class="text-button">恢复内置模板</button>
+              <p id="importStatus" class="import-status">当前使用内置模板。</p>
+            </section>
+
+            <div class="field-grid">
+              <label>
+                <span>国家</span>
+                <select id="country"></select>
+              </label>
+              <label>
+                <span>分区</span>
+                <select id="zone"></select>
+              </label>
+            </div>
+
+            <div class="segmented" role="group" aria-label="重量模式">
+              <button type="button" class="segment active" data-mode="actual">按实重</button>
+              <button type="button" class="segment" data-mode="volume">含体积重</button>
+            </div>
+
+            <div class="field-grid">
+              <label>
+                <span>总实重 kg</span>
+                <input id="actualWeight" type="number" min="0" step="0.1" value="120">
+              </label>
+              <label>
+                <span>箱数</span>
+                <input id="cartons" type="number" min="1" step="1" value="6">
+              </label>
+            </div>
+
+            <div id="volumeFields" class="volume-fields hidden">
+              <div class="field-grid three">
+                <label>
+                  <span>单箱长 cm</span>
+                  <input id="lengthCm" type="number" min="0" step="0.1" value="50">
+                </label>
+                <label>
+                  <span>单箱宽 cm</span>
+                  <input id="widthCm" type="number" min="0" step="0.1" value="40">
+                </label>
+                <label>
+                  <span>单箱高 cm</span>
+                  <input id="heightCm" type="number" min="0" step="0.1" value="35">
+                </label>
+              </div>
+              <label>
+                <span>体积重除数</span>
+                <select id="volumeDivisor">
+                  <option value="6000">6000</option>
+                  <option value="5000">5000</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="toggle-list" aria-label="货物属性">
+              <label><input type="checkbox" id="battery"> 带电</label>
+              <label><input type="checkbox" id="magnetic"> 带磁</label>
+              <label><input type="checkbox" id="pen"> 笔类</label>
+              <label><input type="checkbox" id="wood"> 木制品</label>
+              <label><input type="checkbox" id="textile"> 纯纺织品</label>
+              <label><input type="checkbox" id="remote"> 偏远/超级偏远</label>
+            </div>
+
+            <label>
+              <span>手工附加费 元/kg</span>
+              <input id="manualPerKg" type="number" min="0" step="0.1" value="0">
+            </label>
+
+            <label>
+              <span>手工固定费用 元/票</span>
+              <input id="manualFixed" type="number" min="0" step="1" value="0">
+            </label>
+          </form>
+            </aside>
+
+            <section class="result-panel" aria-live="polite">
+          <div class="summary-grid">
+            <div class="metric">
+              <span>计费重量</span>
+              <strong id="chargeableWeight">0 kg</strong>
+            </div>
+            <div class="metric">
+              <span>最低报价</span>
+              <strong id="bestCost">-</strong>
+            </div>
+            <div class="metric">
+              <span>可用渠道</span>
+              <strong id="availableCount">0</strong>
+            </div>
+            <div class="metric">
+              <span>推荐渠道</span>
+              <strong id="bestRoute">-</strong>
+            </div>
+            <div class="metric">
+              <span>价格数据</span>
+              <strong id="rateCount">0 条价格</strong>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <div id="channelTabs" class="tabs" role="tablist" aria-label="渠道筛选"></div>
+            <button type="button" id="copyCsv" class="icon-button" title="复制结果">复制</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>排名</th>
+                  <th>物流方式</th>
+                  <th>渠道</th>
+                  <th>国家/分区</th>
+                  <th>档位</th>
+                  <th>单价</th>
+                  <th>总费用</th>
+                  <th>平均/kg</th>
+                  <th>参考时效</th>
+                  <th>计费说明</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody"></tbody>
+            </table>
+          </div>
+
+          <section class="detail-band">
+            <h2>模板规则口径</h2>
+            <div class="rule-grid" id="ruleGrid"></div>
+          </section>
+            </section>
+          </div>
+        </section>
+
+        <section id="ordersPage" class="page-view placeholder-page">
+          <h2>订单管理</h2>
+          <p>页面预留，后续可接入订单导入、订单状态、异常件处理等功能。</p>
+        </section>
+
+        <section id="trackingPage" class="page-view placeholder-page">
+          <h2>物流跟踪</h2>
+          <p>页面预留，后续可接入运单轨迹、节点异常和签收回传。</p>
+        </section>
+
+        <section id="statsPage" class="page-view placeholder-page">
+          <h2>数据统计</h2>
+          <p>页面预留，后续可展示渠道费用、时效达成率和异常占比。</p>
+        </section>
+
+        <section id="settingsPage" class="page-view placeholder-page">
+          <h2>系统设置</h2>
+          <p>页面预留，后续可维护账号、模板字段和计费参数。</p>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js?v=3"></script>
+  </body>
+</html>
