@@ -227,15 +227,18 @@
                 </label>
                 <label>
                   <span>渠道</span>
-                  <select id="carrierChannel"></select>
+                  <input id="carrierChannel" list="carrierChannelList" placeholder="全部渠道">
+                  <datalist id="carrierChannelList"></datalist>
                 </label>
                 <label>
                   <span>国家</span>
-                  <select id="carrierCountry"></select>
+                  <input id="carrierCountry" list="carrierCountryList" placeholder="全部国家">
+                  <datalist id="carrierCountryList"></datalist>
                 </label>
                 <label>
                   <span>分区</span>
-                  <select id="carrierZone"></select>
+                  <input id="carrierZone" list="carrierZoneList" placeholder="全部分区">
+                  <datalist id="carrierZoneList"></datalist>
                 </label>
                 <div class="filter-actions">
                   <button type="submit" class="calc-button">查询</button>
@@ -327,23 +330,28 @@
                 </label>
                 <label>
                   <span>运营</span>
-                  <select id="shipOperator"></select>
+                  <input id="shipOperator" list="shipOperatorList" placeholder="全部运营">
+                  <datalist id="shipOperatorList"></datalist>
                 </label>
                 <label>
                   <span>目的国家</span>
-                  <select id="shipCountry"></select>
+                  <input id="shipCountry" list="shipCountryList" placeholder="全部国家">
+                  <datalist id="shipCountryList"></datalist>
                 </label>
                 <label>
                   <span>走货方式</span>
-                  <select id="shipRoute"></select>
+                  <input id="shipRoute" list="shipRouteList" placeholder="全部走货方式">
+                  <datalist id="shipRouteList"></datalist>
                 </label>
                 <label>
                   <span>所属公司</span>
-                  <select id="shipCompany"></select>
+                  <input id="shipCompany" list="shipCompanyList" placeholder="全部公司">
+                  <datalist id="shipCompanyList"></datalist>
                 </label>
                 <label>
                   <span>仓库代码</span>
-                  <select id="shipWarehouse"></select>
+                  <input id="shipWarehouse" list="shipWarehouseList" placeholder="全部仓库">
+                  <datalist id="shipWarehouseList"></datalist>
                 </label>
                 <label>
                   <span>关键词</span>
@@ -525,6 +533,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=17"></script>
+    <script src="app.js?v=18"></script>
   </body>
 </html>
