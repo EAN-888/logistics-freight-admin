@@ -704,6 +704,41 @@ tr.best-row td {
   display: grid !important;
 }
 
+#carrierEditPanel:not(.hidden) {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  align-content: start;
+  max-height: 100vh;
+  overflow: auto;
+  padding: 36px;
+  background: rgba(15, 25, 20, 0.45);
+}
+
+#carrierEditPanel:not(.hidden) .section-head,
+#carrierEditPanel:not(.hidden) #carrierEditForm {
+  width: min(980px, 100%);
+  margin-right: auto;
+  margin-left: auto;
+  background: #fff;
+}
+
+#carrierEditPanel:not(.hidden) .section-head {
+  margin-bottom: 0;
+  padding: 18px 18px 0;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+}
+
+#carrierEditPanel:not(.hidden) #carrierEditForm {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+}
+
 .form-modal {
   position: fixed;
   inset: 0;
