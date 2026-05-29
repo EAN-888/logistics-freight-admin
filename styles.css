@@ -696,8 +696,12 @@ tr.best-row td {
   display: none !important;
 }
 
-.orders-tools > .manual-form {
+.orders-tools > #manualShipmentForm {
   display: none !important;
+}
+
+#carrierEditPanel > .manual-form {
+  display: grid !important;
 }
 
 .form-modal {
