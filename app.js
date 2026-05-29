@@ -602,47 +602,50 @@ function renderCarrierTable() {
   `).join("") : `<tr><td colspan="12" class="unavailable">没有匹配的物流商价格。</td></tr>`;
 }
 
+function carrierField(form, name) {
+  return form.elements.namedItem(name);
+}
+
 function openCarrierEdit(index) {
   const rate = state.rates[index];
   if (!rate) return;
   const form = $("carrierEditForm");
-  form.rateIndex.value = String(index);
-  form.name.value = rate.name || "";
-  form.channel.value = rate.channel || "";
-  form.country.value = rate.country || "";
-  form.zone.value = normalizeZone(rate.zone) || "";
-  form.minWeight.value = rate.minWeight || 0;
-  form.stepWeight.value = rate.stepWeight || 1;
-  form.unitPrice.value = rate.unitPrice || 0;
-  form.fixedFee.value = rate.fixedFee || 0;
-  form.taxIncluded.value = String(Boolean(rate.taxIncluded));
-  form.eta.value = rate.eta || "";
-  form.surchargeText.value = rate.surchargeText || "";
-  form.note.value = rate.note || "";
+  carrierField(form, "rateIndex").value = String(index);
+  carrierField(form, "name").value = rate.name || "";
+  carrierField(form, "channel").value = rate.channel || "";
+  carrierField(form, "country").value = rate.country || "";
+  carrierField(form, "zone").value = normalizeZone(rate.zone) || "";
+  carrierField(form, "minWeight").value = rate.minWeight || 0;
+  carrierField(form, "stepWeight").value = rate.stepWeight || 1;
+  carrierField(form, "unitPrice").value = rate.unitPrice || 0;
+  carrierField(form, "fixedFee").value = rate.fixedFee || 0;
+  carrierField(form, "taxIncluded").value = String(Boolean(rate.taxIncluded));
+  carrierField(form, "eta").value = rate.eta || "";
+  carrierField(form, "surchargeText").value = rate.surchargeText || "";
+  carrierField(form, "note").value = rate.note || "";
   $("carrierEditPanel").classList.remove("hidden");
   form.classList.remove("hidden");
   form.style.display = "";
-  $("carrierEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function saveCarrierEdit(event) {
   event.preventDefault();
   const form = event.currentTarget;
-  const index = Number(form.rateIndex.value);
+  const index = Number(carrierField(form, "rateIndex").value);
   if (!state.rates[index]) return;
   state.rates[index] = normalizeRate({
-    name: form.name.value,
-    channel: form.channel.value,
-    country: form.country.value,
-    zone: form.zone.value,
-    minWeight: Number(form.minWeight.value || 0),
-    stepWeight: Number(form.stepWeight.value || 1),
-    unitPrice: Number(form.unitPrice.value || 0),
-    fixedFee: Number(form.fixedFee.value || 0),
-    taxIncluded: form.taxIncluded.value === "true",
-    eta: form.eta.value,
-    surchargeText: form.surchargeText.value,
-    note: form.note.value
+    name: carrierField(form, "name").value,
+    channel: carrierField(form, "channel").value,
+    country: carrierField(form, "country").value,
+    zone: carrierField(form, "zone").value,
+    minWeight: Number(carrierField(form, "minWeight").value || 0),
+    stepWeight: Number(carrierField(form, "stepWeight").value || 1),
+    unitPrice: Number(carrierField(form, "unitPrice").value || 0),
+    fixedFee: Number(carrierField(form, "fixedFee").value || 0),
+    taxIncluded: carrierField(form, "taxIncluded").value === "true",
+    eta: carrierField(form, "eta").value,
+    surchargeText: carrierField(form, "surchargeText").value,
+    note: carrierField(form, "note").value
   });
   persistRates("物流商管理手动维护");
   $("carrierEditPanel").classList.add("hidden");
