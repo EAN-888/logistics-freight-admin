@@ -48,7 +48,7 @@ function rowToRate(row) {
     name: String(row[0] || "").trim(),
     channel: String(row[1] || "").trim(),
     country: String(row[2] || "").trim(),
-    zone: String(row[3] || "").trim(),
+    zone: normalizeZone(row[3]),
     minWeight: Number(row[4] || 0),
     stepWeight: Number(row[5] || 1) || 1,
     unitPrice: Number(row[6] || 0),
@@ -60,12 +60,21 @@ function rowToRate(row) {
   };
 }
 
+function normalizeZone(value) {
+  const zone = String(value || "").trim();
+  return zone === "不分区" || zone === "不限分区" ? "" : zone;
+}
+
+function normalizeRate(rate) {
+  return { ...rate, zone: normalizeZone(rate.zone) };
+}
+
 function loadStoredRates() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
     const parsed = JSON.parse(stored);
-    return Array.isArray(parsed.rates) && parsed.rates.length ? parsed : null;
+    return Array.isArray(parsed.rates) && parsed.rates.length ? { ...parsed, rates: parsed.rates.map(normalizeRate) } : null;
   } catch {
     return null;
   }
@@ -89,7 +98,7 @@ async function loadPublishedRates() {
     const response = await fetch(`data/rates.json?v=${Date.now()}`, { cache: "no-store" });
     if (!response.ok) return null;
     const parsed = await response.json();
-    return Array.isArray(parsed.rates) && parsed.rates.length ? parsed : null;
+    return Array.isArray(parsed.rates) && parsed.rates.length ? { ...parsed, rates: parsed.rates.map(normalizeRate) } : null;
   } catch {
     return null;
   }
@@ -111,7 +120,9 @@ function initOptions(keepSelection = true) {
 function updateZones(keepSelection = true) {
   const previousZone = $("zone").value;
   const country = $("country").value;
-  const zones = unique(state.rates.filter(rate => rate.country === country).map(rate => rate.zone || "不限分区"));
+  const countryRates = state.rates.filter(rate => rate.country === country);
+  const zonedValues = unique(countryRates.map(rate => normalizeZone(rate.zone)).filter(Boolean));
+  const zones = zonedValues.length ? zonedValues : ["不分区"];
   $("zone").innerHTML = zones.map(zone => `<option value="${escapeHtml(zone)}">${escapeHtml(zone)}</option>`).join("");
   $("zone").value = keepSelection && zones.includes(previousZone) ? previousZone : zones[0] || "";
 }
@@ -144,7 +155,7 @@ function getInputs() {
 
   return {
     country: $("country").value,
-    zone: $("zone").value === "不限分区" ? "" : $("zone").value,
+    zone: normalizeZone($("zone").value),
     cartons,
     actualWeight,
     singleActual,
@@ -159,9 +170,9 @@ function getInputs() {
 function chooseTier(input) {
   return state.rates
     .filter(rate => rate.country === input.country)
-    .filter(rate => !rate.zone || rate.zone === input.zone)
+    .filter(rate => !normalizeZone(rate.zone) || normalizeZone(rate.zone) === input.zone)
     .reduce((groups, rate) => {
-      const key = `${rate.name}|${rate.channel}|${rate.country}|${rate.zone || ""}`;
+      const key = `${rate.name}|${rate.channel}|${rate.country}|${normalizeZone(rate.zone)}`;
       const current = groups.get(key);
       if (!current) {
         groups.set(key, rate);
@@ -256,7 +267,7 @@ function renderResults(results) {
         <td><span class="rank">${index + 1}</span></td>
         <td><strong>${escapeHtml(row.name)}</strong><div class="muted">${escapeHtml(row.note)}</div>${blocked}</td>
         <td>${escapeHtml(row.channel)}<div class="muted">${row.taxIncluded ? "含税" : "自税"}</div></td>
-        <td>${escapeHtml(row.country)}${row.zone ? ` / ${escapeHtml(row.zone)}` : ""}</td>
+        <td>${escapeHtml(row.country)}${normalizeZone(row.zone) ? ` / ${escapeHtml(normalizeZone(row.zone))}` : ""}</td>
         <td>${row.minWeight}kg起<br><span class="muted">按${row.billWeight.toFixed(1)}kg计</span></td>
         <td>¥${row.unitPrice}/kg</td>
         <td class="money">${currency(row.cost)}</td>
@@ -270,7 +281,7 @@ function renderResults(results) {
 
 function renderRules() {
   const grouped = state.rates.reduce((map, rate) => {
-    const key = `${rate.name}|${rate.country}|${rate.zone || "不限分区"}`;
+    const key = `${rate.name}|${rate.country}|${normalizeZone(rate.zone) || "全分区适用"}`;
     const rows = map.get(key) || [];
     rows.push(rate);
     map.set(key, rows);
@@ -508,19 +519,19 @@ document.querySelectorAll(".segment").forEach(button => {
     button.classList.add("active");
     state.mode = button.dataset.mode;
     $("volumeFields").classList.toggle("hidden", state.mode !== "volume");
-    calculate();
   });
 });
 
 $("country").addEventListener("change", () => {
   updateZones(false);
-  calculate();
 });
 $("copyCsv").addEventListener("click", copyCsv);
 $("templateFile").addEventListener("change", handleImport);
 $("resetRates").addEventListener("click", resetRates);
-$("quoteForm").addEventListener("input", calculate);
-$("quoteForm").addEventListener("change", calculate);
+$("quoteForm").addEventListener("submit", event => {
+  event.preventDefault();
+  calculate();
+});
 
 const pageTitles = {
   freight: "运费试算",
