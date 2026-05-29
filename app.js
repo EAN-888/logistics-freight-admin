@@ -811,6 +811,34 @@ function normalizeShipmentRows(rows) {
   })).filter(record => record.fbaOrderNo || record.trackingNo);
 }
 
+function normalizeHeaderText(value) {
+  return String(value || "")
+    .replace(/\s|\n/g, "")
+    .replace(/[（）]/g, char => char === "（" ? "(" : ")")
+    .toLowerCase();
+}
+
+function normalizeTrackingRows(rows) {
+  const [header, ...body] = rows.filter(row => row.some(cell => String(cell ?? "").trim()));
+  if (!header) throw new Error("模板为空");
+  const cleaned = header.map(normalizeHeaderText);
+  const find = (...names) => {
+    const targets = names.map(normalizeHeaderText);
+    return cleaned.findIndex(cell => targets.includes(cell));
+  };
+  const batchIdx = find("批次号", "内部批次号");
+  const fbaIdx = find("FBA订单号", "FBA单号", "订单号");
+  const trackingIdx = find("运单号", "物流单号", "跟踪号", "trackingno");
+  if (trackingIdx < 0 || (batchIdx < 0 && fbaIdx < 0)) {
+    throw new Error("运单号模板至少需要：批次号或FBA订单号，以及运单号");
+  }
+  return body.map(row => ({
+    batchNo: batchIdx >= 0 ? String(row[batchIdx] || "").trim() : "",
+    fbaOrderNo: fbaIdx >= 0 ? String(row[fbaIdx] || "").trim() : "",
+    trackingNo: String(row[trackingIdx] || "").trim()
+  })).filter(row => row.trackingNo && (row.batchNo || row.fbaOrderNo));
+}
+
 function mergeShipments(records) {
   const map = new Map(state.shipments.map(record => [shipmentKey(record), record]));
   records.forEach(record => {
@@ -818,6 +846,28 @@ function mergeShipments(records) {
     if (key !== "|") map.set(key, record);
   });
   state.shipments = [...map.values()];
+}
+
+function updateShipmentTrackingNumbers(rows) {
+  let updated = 0;
+  const misses = [];
+  rows.forEach(row => {
+    const matches = state.shipments.filter(record => {
+      if (row.fbaOrderNo && record.fbaOrderNo === row.fbaOrderNo) return true;
+      if (!row.fbaOrderNo && row.batchNo && record.batchNo === row.batchNo) return true;
+      if (row.fbaOrderNo && row.batchNo) return record.batchNo === row.batchNo;
+      return false;
+    });
+    if (!matches.length) {
+      misses.push(row);
+      return;
+    }
+    matches.forEach(record => {
+      record.trackingNo = row.trackingNo;
+      updated += 1;
+    });
+  });
+  return { updated, missed: misses.length, total: rows.length };
 }
 
 function populateShipmentFilters() {
@@ -918,6 +968,47 @@ async function handleShipmentImport(event) {
   }
 }
 
+async function handleTrackingImport(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  $("shipmentImportStatus").textContent = "正在导入运单号...";
+  try {
+    const rows = file.name.toLowerCase().endsWith(".csv")
+      ? parseCsv(await file.text())
+      : await parseXlsx(await file.arrayBuffer());
+    const trackingRows = normalizeTrackingRows(rows);
+    const result = updateShipmentTrackingNumbers(trackingRows);
+    persistShipments(`运单号导入：${file.name}`);
+    populateShipmentFilters();
+    filterShipments();
+    $("shipmentImportStatus").textContent = `运单号导入完成：读取 ${result.total} 条，更新 ${result.updated} 条，未匹配 ${result.missed} 条。`;
+  } catch (error) {
+    $("shipmentImportStatus").textContent = `运单号导入失败：${error.message}`;
+  } finally {
+    event.target.value = "";
+  }
+}
+
+async function handleTrackingImport(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  $("shipmentImportStatus").textContent = "正在导入运单号...";
+  try {
+    const rows = file.name.toLowerCase().endsWith(".csv")
+      ? parseCsv(await file.text())
+      : await parseXlsx(await file.arrayBuffer());
+    const result = updateShipmentTrackingNumbers(normalizeTrackingRows(rows));
+    persistShipments(state.shipmentSource || file.name);
+    populateShipmentFilters();
+    filterShipments();
+    $("shipmentImportStatus").textContent = `已读取 ${result.total} 条运单号，更新 ${result.updated} 条发货记录${result.missed ? `，${result.missed} 条未匹配` : ""}。`;
+  } catch (error) {
+    $("shipmentImportStatus").textContent = `导入失败：${error.message}`;
+  } finally {
+    event.target.value = "";
+  }
+}
+
 function setShipmentEditMode(record) {
   const form = $("manualShipmentForm");
   state.editingShipmentKey = record ? shipmentKey(record) : "";
@@ -1003,6 +1094,180 @@ function copyCsv() {
   setTimeout(() => $("copyCsv").textContent = "复制", 1200);
 }
 
+function csvCell(value) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
+function downloadCsv(filename, headers, rows) {
+  const csv = [headers, ...rows].map(row => row.map(csvCell).join(",")).join("\n");
+  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportCarrierData() {
+  const rows = state.filteredCarrierRates;
+  downloadCsv(`物流商价格-${new Date().toISOString().slice(0, 10)}.csv`, [
+    "物流方式",
+    "渠道",
+    "国家",
+    "分区",
+    "起重",
+    "续重",
+    "单价",
+    "固定费",
+    "含税",
+    "参考时效",
+    "附加费",
+    "备注"
+  ], rows.map(rate => [
+    rate.name,
+    rate.channel,
+    rate.country,
+    normalizeZone(rate.zone) || "全分区",
+    rate.minWeight,
+    rate.stepWeight,
+    rate.unitPrice,
+    rate.fixedFee || "",
+    rate.taxIncluded ? "是" : "否",
+    rate.eta,
+    rate.surchargeText,
+    rate.note
+  ]));
+  setImportStatus(`已导出 ${rows.length.toLocaleString("zh-CN")} 条物流商数据。`);
+}
+
+function exportShipmentData() {
+  const rows = state.filteredShipments;
+  downloadCsv(`发货记录-${new Date().toISOString().slice(0, 10)}.csv`, [
+    "发货日期",
+    "内部批次号",
+    "运营姓名",
+    "FBA订单号",
+    "运单号",
+    "箱数",
+    "所属公司",
+    "实际重量 kg",
+    "体积重 kg",
+    "计费重量 kg",
+    "走货方式",
+    "目的国家",
+    "计费单价",
+    "其它费用",
+    "仓库代码",
+    "备注"
+  ], rows.map(record => [
+    record.shipDate,
+    record.batchNo,
+    record.operator,
+    record.fbaOrderNo,
+    record.trackingNo,
+    record.cartons || "",
+    record.company,
+    record.actualWeight || "",
+    record.volumeWeight || "",
+    record.chargeWeight || "",
+    record.route,
+    record.country,
+    record.unitPrice || "",
+    record.otherFee || "",
+    record.warehouseCode,
+    record.remark
+  ]));
+  $("shipmentImportStatus").textContent = `已导出 ${rows.length.toLocaleString("zh-CN")} 条发货数据。`;
+}
+
+function downloadRateTemplate() {
+  downloadCsv("物流商价格导入模板.csv", [
+    "物流方式",
+    "渠道",
+    "国家名称",
+    "分区",
+    "起重重量(kg)",
+    "起重费用",
+    "续重重量(kg)",
+    "续重费用",
+    "含税",
+    "参考时效",
+    "附加费",
+    "备注"
+  ], [[
+    "示例物流-美国海派",
+    "海运",
+    "美国",
+    "美西",
+    "12",
+    "",
+    "1",
+    "13.8",
+    "是",
+    "16-18天提取",
+    "带电+1，带磁+1",
+    "示例行可删除"
+  ]]);
+  setImportStatus("已下载物流商价格导入模板。");
+}
+
+function downloadShipmentTemplate() {
+  downloadCsv("发货数据导入模板.csv", [
+    "发货日期",
+    "内部批次号",
+    "运营姓名",
+    "FBA订单号",
+    "运单号",
+    "箱数",
+    "所属公司",
+    "实际重量(KG)",
+    "体积重(KG)",
+    "物流计费重量(KG)",
+    "单票计费重(KG)",
+    "走货方式(物流商-渠道)",
+    "目的国家",
+    "计费单价",
+    "其它费用",
+    "仓库代码",
+    "备注"
+  ], [[
+    "2026-05-29",
+    "BATCH-001",
+    "张三",
+    "FBA123456",
+    "1Z999999",
+    "10",
+    "示例公司",
+    "120",
+    "130",
+    "130",
+    "130",
+    "示例物流-海运",
+    "美国",
+    "13.8",
+    "0",
+    "ONT8",
+    "示例行可删除"
+  ]]);
+  $("shipmentImportStatus").textContent = "已下载发货数据导入模板。";
+}
+
+function downloadTrackingTemplate() {
+  downloadCsv("运单号导入模板.csv", [
+    "内部批次号",
+    "FBA订单号",
+    "运单号"
+  ], [[
+    "BATCH-001",
+    "FBA123456",
+    "1Z999999"
+  ]]);
+  $("shipmentImportStatus").textContent = "已下载运单号导入模板。";
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 }
@@ -1030,6 +1295,7 @@ $("resetCarrierFilters").addEventListener("click", () => {
   $("carrierFilters").reset();
   filterCarrierRates();
 });
+$("exportCarrierData").addEventListener("click", exportCarrierData);
 $("carrierBody").addEventListener("click", event => {
   const button = event.target.closest("[data-edit-rate]");
   if (button) openCarrierEdit(Number(button.dataset.editRate));
@@ -1063,7 +1329,9 @@ $("resetShipmentFilters").addEventListener("click", () => {
   $("shipmentFilters").reset();
   filterShipments();
 });
+$("exportShipmentData").addEventListener("click", exportShipmentData);
 $("shipmentFile").addEventListener("change", handleShipmentImport);
+$("trackingFile").addEventListener("change", handleTrackingImport);
 $("toggleShipmentForm").addEventListener("click", () => {
   setShipmentEditMode(null);
 });
