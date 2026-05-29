@@ -246,6 +246,7 @@ h2 {
   background: var(--green);
   cursor: pointer;
   font-size: 13px;
+  text-decoration: none;
 }
 
 .file-button input {
@@ -642,6 +643,11 @@ tr.best-row td {
 .section-head h2 {
   margin: 0;
   font-size: 20px;
+}
+
+.section-action {
+  min-width: 110px;
+  justify-self: end;
 }
 
 .source-pill {
