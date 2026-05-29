@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FBA 运费查询</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta http-equiv="Cache-Control" content="no-store">
+    <link rel="stylesheet" href="styles.css?v=20260529-simple">
   </head>
   <body>
     <div class="admin-shell">
@@ -15,6 +16,7 @@
         </div>
         <nav class="side-nav">
           <button type="button" class="nav-item active" data-page="freight">运费查询</button>
+          <button type="button" class="nav-item" data-page="carriers">物流商管理</button>
           <button type="button" class="nav-item" data-page="orders">订单管理</button>
           <button type="button" class="nav-item" data-page="tracking">物流跟踪</button>
           <button type="button" class="nav-item" data-page="stats">数据统计</button>
@@ -41,21 +43,6 @@
           </div>
 
           <form id="quoteForm" class="quote-form">
-            <section class="import-box" aria-label="导入运费模板">
-              <div>
-                <strong>导入最新运费模板</strong>
-                <p>支持 .xlsx / .csv，导入后覆盖旧价格。</p>
-              </div>
-              <div class="import-actions">
-                <label class="file-button">
-                  <input id="templateFile" type="file" accept=".xlsx,.csv">
-                  选择模板
-                </label>
-                <button type="button" id="resetRates" class="text-button">恢复</button>
-              </div>
-              <p id="importStatus" class="import-status">当前使用内置模板。</p>
-            </section>
-
             <div class="field-grid">
               <label>
                 <span>国家</span>
@@ -205,6 +192,108 @@
           </div>
         </section>
 
+        <section id="carriersPage" class="page-view">
+          <div class="orders-layout">
+            <section class="orders-tools">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Carrier Rate Management</p>
+                  <h2>物流商管理</h2>
+                </div>
+                <span id="carrierRateCount" class="source-pill">加载中</span>
+              </div>
+
+              <section class="import-box carrier-import" aria-label="导入运费模板">
+                <div>
+                  <strong>导入最新运费模板</strong>
+                  <p>支持 .xlsx / .csv，导入后覆盖旧价格并保留在物流商管理中。</p>
+                </div>
+                <div class="import-actions">
+                  <label class="file-button">
+                    <input id="templateFile" type="file" accept=".xlsx,.csv">
+                    选择模板
+                  </label>
+                  <button type="button" id="resetRates" class="text-button">恢复默认</button>
+                </div>
+                <p id="importStatus" class="import-status">当前使用内置模板。</p>
+              </section>
+
+              <form id="carrierFilters" class="shipment-filters carrier-filters">
+                <label>
+                  <span>关键词</span>
+                  <input id="carrierKeyword" type="search" placeholder="物流方式 / 附加费 / 备注">
+                </label>
+                <label>
+                  <span>渠道</span>
+                  <select id="carrierChannel"></select>
+                </label>
+                <label>
+                  <span>国家</span>
+                  <select id="carrierCountry"></select>
+                </label>
+                <label>
+                  <span>分区</span>
+                  <select id="carrierZone"></select>
+                </label>
+                <div class="filter-actions">
+                  <button type="submit" class="calc-button">查询</button>
+                  <button type="button" id="resetCarrierFilters" class="text-button">重置</button>
+                </div>
+              </form>
+            </section>
+
+            <section id="carrierEditPanel" class="orders-tools hidden">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Edit Rate</p>
+                  <h2>编辑物流商价格</h2>
+                </div>
+              </div>
+              <form id="carrierEditForm" class="manual-form">
+                <input type="hidden" name="rateIndex">
+                <label><span>物流方式</span><input name="name" required></label>
+                <label><span>渠道</span><input name="channel" required></label>
+                <label><span>国家</span><input name="country" required></label>
+                <label><span>分区</span><input name="zone" placeholder="空白表示全分区适用"></label>
+                <label><span>起重重量 kg</span><input name="minWeight" type="number" min="0" step="0.1" required></label>
+                <label><span>续重重量 kg</span><input name="stepWeight" type="number" min="0.1" step="0.1"></label>
+                <label><span>续重费用 元/kg</span><input name="unitPrice" type="number" min="0" step="0.01" required></label>
+                <label><span>固定费用 元/票</span><input name="fixedFee" type="number" min="0" step="0.01"></label>
+                <label><span>含税</span><select name="taxIncluded"><option value="true">是</option><option value="false">否</option></select></label>
+                <label><span>参考时效</span><input name="eta"></label>
+                <label class="wide"><span>附加费</span><input name="surchargeText"></label>
+                <label class="wide"><span>备注</span><input name="note"></label>
+                <button type="submit" class="calc-button wide">保存修改</button>
+                <button type="button" id="cancelCarrierEdit" class="text-button wide">取消</button>
+              </form>
+            </section>
+
+            <section class="orders-tools wide-panel">
+              <div class="table-wrap">
+                <table class="carrier-table">
+                  <thead>
+                    <tr>
+                      <th>操作</th>
+                      <th>物流方式</th>
+                      <th>渠道</th>
+                      <th>国家</th>
+                      <th>分区</th>
+                      <th>起重</th>
+                      <th>续重</th>
+                      <th>单价</th>
+                      <th>固定费</th>
+                      <th>含税</th>
+                      <th>参考时效</th>
+                      <th>附加费</th>
+                    </tr>
+                  </thead>
+                  <tbody id="carrierBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
         <section id="ordersPage" class="page-view">
           <div class="orders-layout">
             <section class="orders-tools">
@@ -276,33 +365,40 @@
                   <input id="shipmentFile" type="file" accept=".xlsx,.csv">
                   批量导入发货数据
                 </label>
-                <button type="button" id="toggleShipmentForm" class="text-button">手动新增单条</button>
-                <button type="button" id="resetShipments" class="text-button">恢复默认数据</button>
+                <button type="button" id="toggleShipmentForm" class="text-button">新增</button>
               </div>
               <p id="shipmentImportStatus" class="import-status">批量导入将按 FBA订单号 + 运单号 去重更新。</p>
 
-              <form id="manualShipmentForm" class="manual-form hidden">
-                <label><span>发货日期</span><input name="shipDate" type="date" required></label>
-                <label><span>内部批次号</span><input name="batchNo"></label>
-                <label><span>运营姓名</span><input name="operator"></label>
-                <label><span>FBA订单号</span><input name="fbaOrderNo" required></label>
-                <label><span>运单号</span><input name="trackingNo" required></label>
-                <label><span>箱数</span><input name="cartons" type="number" min="0" step="1"></label>
-                <label><span>所属公司</span><input name="company"></label>
-                <label><span>实际重量 kg</span><input name="actualWeight" type="number" min="0" step="0.1"></label>
-                <label><span>体积重 kg</span><input name="volumeWeight" type="number" min="0" step="0.1"></label>
-                <label><span>计费重量 kg</span><input name="chargeWeight" type="number" min="0" step="0.1"></label>
-                <label><span>走货方式</span><input name="route"></label>
-                <label><span>目的国家</span><input name="country"></label>
-                <label><span>计费单价</span><input name="unitPrice" type="number" min="0" step="0.01"></label>
-                <label><span>其它费用</span><input name="otherFee" type="number" min="0" step="0.01"></label>
-                <label><span>仓库代码</span><input name="warehouseCode"></label>
-                <label class="wide"><span>备注</span><input name="remark"></label>
-                <div class="manual-form-actions wide">
-                  <button type="submit" id="manualShipmentSubmit" class="calc-button">保存发货记录</button>
-                  <button type="button" id="cancelShipmentEdit" class="text-button hidden">取消编辑</button>
+              <div id="shipmentFormModal" class="form-modal hidden" aria-hidden="true" style="display: none;">
+                <div class="form-modal-panel" role="dialog" aria-modal="true" aria-labelledby="shipmentFormTitle">
+                  <div class="modal-head">
+                    <h3 id="shipmentFormTitle">新增发货记录</h3>
+                    <button type="button" id="closeShipmentForm" class="icon-button" aria-label="关闭">×</button>
+                  </div>
+                  <form id="manualShipmentForm" class="manual-form">
+                    <label><span>发货日期</span><input name="shipDate" type="date" required></label>
+                    <label><span>内部批次号</span><input name="batchNo"></label>
+                    <label><span>运营姓名</span><input name="operator"></label>
+                    <label><span>FBA订单号</span><input name="fbaOrderNo" required></label>
+                    <label><span>运单号</span><input name="trackingNo" required></label>
+                    <label><span>箱数</span><input name="cartons" type="number" min="0" step="1"></label>
+                    <label><span>所属公司</span><input name="company"></label>
+                    <label><span>实际重量 kg</span><input name="actualWeight" type="number" min="0" step="0.1"></label>
+                    <label><span>体积重 kg</span><input name="volumeWeight" type="number" min="0" step="0.1"></label>
+                    <label><span>计费重量 kg</span><input name="chargeWeight" type="number" min="0" step="0.1"></label>
+                    <label><span>走货方式</span><input name="route"></label>
+                    <label><span>目的国家</span><input name="country"></label>
+                    <label><span>计费单价</span><input name="unitPrice" type="number" min="0" step="0.01"></label>
+                    <label><span>其它费用</span><input name="otherFee" type="number" min="0" step="0.01"></label>
+                    <label><span>仓库代码</span><input name="warehouseCode"></label>
+                    <label class="wide"><span>备注</span><input name="remark"></label>
+                    <div class="manual-form-actions wide">
+                      <button type="submit" id="manualShipmentSubmit" class="calc-button">保存发货记录</button>
+                      <button type="button" id="cancelShipmentEdit" class="text-button hidden">取消编辑</button>
+                    </div>
+                  </form>
                 </div>
-              </form>
+              </div>
             </section>
 
             <section class="orders-tools wide-panel">
@@ -367,6 +463,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=20260529-simple"></script>
   </body>
 </html>
