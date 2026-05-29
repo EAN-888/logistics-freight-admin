@@ -40,6 +40,10 @@ const state = {
   shipments: [],
   filteredShipments: [],
   shipmentSource: "",
+  freightPage: 1,
+  freightPageSize: 100,
+  shipmentPage: 1,
+  shipmentPageSize: 100,
   lastResults: []
 };
 
@@ -241,6 +245,7 @@ function calculate() {
     .sort((a, b) => Number(a.blocked) - Number(b.blocked) || a.cost - b.cost);
 
   state.lastResults = results;
+  state.freightPage = 1;
   renderSummary(results, input);
   renderResults(results);
 }
@@ -256,19 +261,24 @@ function renderSummary(results, input) {
 }
 
 function renderResults(results) {
+  const totalPages = Math.max(1, Math.ceil(results.length / state.freightPageSize));
+  state.freightPage = Math.min(Math.max(1, state.freightPage), totalPages);
+  updatePager("freight", results.length, state.freightPage, state.freightPageSize);
   if (!results.length) {
     $("resultsBody").innerHTML = `<tr><td colspan="10" class="unavailable">当前条件没有匹配渠道，请调整国家、分区或渠道筛选。</td></tr>`;
     return;
   }
 
-  $("resultsBody").innerHTML = results.map((row, index) => {
+  const start = (state.freightPage - 1) * state.freightPageSize;
+  const visible = results.slice(start, start + state.freightPageSize);
+  $("resultsBody").innerHTML = visible.map((row, index) => {
     const surchargeText = row.surchargeLines.length
       ? row.surchargeLines.map(line => `<span class="chip">${escapeHtml(line.label)}</span>`).join("")
       : `<span class="muted">无额外勾选附加费</span>`;
     const blocked = row.blocked ? `<div class="unavailable">属性需单独确认或渠道不收</div>` : "";
     return `
       <tr class="${index === 0 && !row.blocked ? "best-row" : ""}">
-        <td><span class="rank">${index + 1}</span></td>
+        <td><span class="rank">${start + index + 1}</span></td>
         <td><strong>${escapeHtml(row.name)}</strong><div class="muted">${escapeHtml(row.note)}</div>${blocked}</td>
         <td>${escapeHtml(row.channel)}<div class="muted">${row.taxIncluded ? "含税" : "自税"}</div></td>
         <td>${escapeHtml(row.country)}${normalizeZone(row.zone) ? ` / ${escapeHtml(normalizeZone(row.zone))}` : ""}</td>
@@ -504,6 +514,16 @@ function setImportStatus(text) {
   $("importStatus").textContent = text;
 }
 
+function updatePager(prefix, total, page, pageSize) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const info = $(`${prefix}PageInfo`);
+  const prev = $(`${prefix}PrevPage`);
+  const next = $(`${prefix}NextPage`);
+  if (info) info.textContent = `第 ${page} / ${totalPages} 页，共 ${total.toLocaleString("zh-CN")} 条`;
+  if (prev) prev.disabled = page <= 1;
+  if (next) next.disabled = page >= totalPages;
+}
+
 function loadStoredShipments() {
   try {
     const stored = localStorage.getItem(SHIPMENT_STORAGE_KEY);
@@ -655,6 +675,7 @@ function filterShipments() {
       && (!warehouse || record.warehouseCode === warehouse)
       && (!keyword || haystack.includes(keyword));
   }).sort((a, b) => String(b.shipDate).localeCompare(String(a.shipDate)));
+  state.shipmentPage = 1;
   renderShipments();
 }
 
@@ -671,7 +692,11 @@ function renderShipmentSummary(records) {
 function renderShipments() {
   renderShipmentSummary(state.filteredShipments);
   $("shipmentSource").textContent = `${state.shipmentSource || "发货记录"} · ${state.shipments.length.toLocaleString("zh-CN")} 条`;
-  const visible = state.filteredShipments.slice(0, 300);
+  const totalPages = Math.max(1, Math.ceil(state.filteredShipments.length / state.shipmentPageSize));
+  state.shipmentPage = Math.min(Math.max(1, state.shipmentPage), totalPages);
+  updatePager("shipment", state.filteredShipments.length, state.shipmentPage, state.shipmentPageSize);
+  const start = (state.shipmentPage - 1) * state.shipmentPageSize;
+  const visible = state.filteredShipments.slice(start, start + state.shipmentPageSize);
   $("shipmentBody").innerHTML = visible.length ? visible.map(record => `
     <tr>
       <td>${escapeHtml(record.shipDate)}</td>
@@ -786,6 +811,19 @@ $("quoteForm").addEventListener("submit", event => {
   event.preventDefault();
   calculate();
 });
+$("freightPageSize").addEventListener("change", event => {
+  state.freightPageSize = Number(event.target.value) || 100;
+  state.freightPage = 1;
+  renderResults(state.lastResults);
+});
+$("freightPrevPage").addEventListener("click", () => {
+  state.freightPage -= 1;
+  renderResults(state.lastResults);
+});
+$("freightNextPage").addEventListener("click", () => {
+  state.freightPage += 1;
+  renderResults(state.lastResults);
+});
 $("shipmentFilters").addEventListener("submit", event => {
   event.preventDefault();
   filterShipments();
@@ -800,6 +838,19 @@ $("toggleShipmentForm").addEventListener("click", () => {
 });
 $("manualShipmentForm").addEventListener("submit", addManualShipment);
 $("resetShipments").addEventListener("click", resetShipments);
+$("shipmentPageSize").addEventListener("change", event => {
+  state.shipmentPageSize = Number(event.target.value) || 100;
+  state.shipmentPage = 1;
+  renderShipments();
+});
+$("shipmentPrevPage").addEventListener("click", () => {
+  state.shipmentPage -= 1;
+  renderShipments();
+});
+$("shipmentNextPage").addEventListener("click", () => {
+  state.shipmentPage += 1;
+  renderShipments();
+});
 
 const pageTitles = {
   freight: "运费查询",
