@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>FBA 运费重量对比</title>
+    <title>FBA 运费查询</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -14,7 +14,7 @@
           <span>Freight Ops</span>
         </div>
         <nav class="side-nav">
-          <button type="button" class="nav-item active" data-page="freight">运费试算</button>
+          <button type="button" class="nav-item active" data-page="freight">运费查询</button>
           <button type="button" class="nav-item" data-page="orders">订单管理</button>
           <button type="button" class="nav-item" data-page="tracking">物流跟踪</button>
           <button type="button" class="nav-item" data-page="stats">数据统计</button>
@@ -26,7 +26,7 @@
         <header class="topbar">
           <div>
             <p class="eyebrow">Logistics Console</p>
-            <h1 id="pageTitle">运费试算</h1>
+            <h1 id="pageTitle">运费查询</h1>
           </div>
           <div class="topbar-note">FBA 头程 / 快递 / 卡航价格对比</div>
         </header>
@@ -35,8 +35,8 @@
           <div class="workspace">
             <aside class="control-panel" aria-label="运费计算条件">
           <div class="brand-block">
-            <p class="eyebrow">FBA Freight Compare</p>
-            <h2>各渠道运费重量对比</h2>
+            <p class="eyebrow">FBA Freight Query</p>
+            <h2>运费查询</h2>
             <p>按模板价格自动匹配国家、分区、重量档位与货物附加费，快速筛出更优头程方案。</p>
           </div>
 
@@ -44,13 +44,15 @@
             <section class="import-box" aria-label="导入运费模板">
               <div>
                 <strong>导入最新运费模板</strong>
-                <p>支持当前表头的 .xlsx / .csv；导入后会清空旧价格并使用最新数据。</p>
+                <p>支持 .xlsx / .csv，导入后覆盖旧价格。</p>
               </div>
-              <label class="file-button">
-                <input id="templateFile" type="file" accept=".xlsx,.csv">
-                选择模板
-              </label>
-              <button type="button" id="resetRates" class="text-button">恢复内置模板</button>
+              <div class="import-actions">
+                <label class="file-button">
+                  <input id="templateFile" type="file" accept=".xlsx,.csv">
+                  选择模板
+                </label>
+                <button type="button" id="resetRates" class="text-button">恢复</button>
+              </div>
               <p id="importStatus" class="import-status">当前使用内置模板。</p>
             </section>
 
@@ -124,7 +126,7 @@
               <input id="manualFixed" type="number" min="0" step="1" value="0">
             </label>
 
-            <button type="submit" id="calculateBtn" class="calc-button">开始计算</button>
+            <button type="submit" id="calculateBtn" class="calc-button">查询</button>
           </form>
             </aside>
 
@@ -207,6 +209,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=4"></script>
+    <script src="app.js?v=5"></script>
   </body>
 </html>
