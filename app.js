@@ -534,7 +534,7 @@ $("quoteForm").addEventListener("submit", event => {
 });
 
 const pageTitles = {
-  freight: "运费试算",
+  freight: "运费查询",
   orders: "订单管理",
   tracking: "物流跟踪",
   stats: "数据统计",
