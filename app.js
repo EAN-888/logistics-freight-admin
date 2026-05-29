@@ -22,6 +22,7 @@ const DEFAULT_RATES = [
 ].map(rowToRate);
 
 const STORAGE_KEY = "fba-freight-rates-v1";
+const SHIPMENT_STORAGE_KEY = "fba-shipment-records-v1";
 
 const SURCHARGE_RULES = {
   battery: { label: "带电", perKg: 1, applies: rate => /带电\+?1/.test(rate.surchargeText) },
@@ -36,6 +37,9 @@ const state = {
   mode: "actual",
   channel: "all",
   rates: DEFAULT_RATES,
+  shipments: [],
+  filteredShipments: [],
+  shipmentSource: "",
   lastResults: []
 };
 
@@ -500,6 +504,256 @@ function setImportStatus(text) {
   $("importStatus").textContent = text;
 }
 
+function loadStoredShipments() {
+  try {
+    const stored = localStorage.getItem(SHIPMENT_STORAGE_KEY);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed.records) && parsed.records.length ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistShipments(sourceName) {
+  try {
+    localStorage.setItem(SHIPMENT_STORAGE_KEY, JSON.stringify({
+      sourceName,
+      importedAt: new Date().toISOString(),
+      records: state.shipments
+    }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function loadPublishedShipments() {
+  try {
+    const response = await fetch(`data/shipping-records.json?v=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) return null;
+    const parsed = await response.json();
+    return Array.isArray(parsed.records) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function shipmentKey(record) {
+  return `${record.fbaOrderNo || ""}|${record.trackingNo || ""}`.toLowerCase();
+}
+
+function normalizeShipment(record) {
+  return {
+    shipDate: String(record.shipDate || "").slice(0, 10),
+    batchNo: String(record.batchNo || "").trim(),
+    operator: String(record.operator || "").trim(),
+    fbaOrderNo: String(record.fbaOrderNo || "").trim(),
+    trackingNo: String(record.trackingNo || "").trim(),
+    cartons: Number(record.cartons || 0),
+    company: String(record.company || "").trim(),
+    actualWeight: Number(record.actualWeight || 0),
+    volumeWeight: Number(record.volumeWeight || 0),
+    chargeWeight: Number(record.chargeWeight || 0),
+    ticketWeight: Number(record.ticketWeight || 0),
+    route: String(record.route || "").trim(),
+    country: String(record.country || "").trim(),
+    unitPrice: Number(record.unitPrice || 0),
+    otherFee: Number(record.otherFee || 0),
+    remark: String(record.remark || "").trim(),
+    warehouseCode: String(record.warehouseCode || "").trim()
+  };
+}
+
+function normalizeShipmentRows(rows) {
+  const [header, ...body] = rows.filter(row => row.some(cell => String(cell ?? "").trim()));
+  const cleaned = header.map(cell => String(cell || "").replace(/\s|\n/g, "").replace(/（/g, "(").replace(/）/g, ")"));
+  const index = (...names) => names.map(name => cleaned.indexOf(name)).find(pos => pos >= 0);
+  const idx = {
+    shipDate: index("发货日期"),
+    batchNo: index("内部批次号"),
+    operator: index("运营姓名"),
+    fbaOrderNo: index("FBA订单号"),
+    trackingNo: index("运单号"),
+    cartons: index("箱数"),
+    company: index("所属公司"),
+    actualWeight: index("实际重量(KG)"),
+    volumeWeight: index("体积重(KG)"),
+    chargeWeight: index("物流计费重量(KG)", "物流计费重量(KG)"),
+    ticketWeight: index("单票计费重(KG)"),
+    route: index("走货方式(物流商-渠道)"),
+    country: index("目的国家"),
+    unitPrice: index("计费单价"),
+    otherFee: index("其它费用"),
+    remark: index("备注"),
+    warehouseCode: index("仓库代码")
+  };
+  if ([idx.shipDate, idx.fbaOrderNo, idx.trackingNo, idx.route].some(pos => pos === undefined)) {
+    throw new Error("发货记录表头不匹配，请保留发货日期、FBA订单号、运单号、走货方式等列");
+  }
+  return body.map(row => normalizeShipment({
+    shipDate: row[idx.shipDate],
+    batchNo: row[idx.batchNo],
+    operator: row[idx.operator],
+    fbaOrderNo: row[idx.fbaOrderNo],
+    trackingNo: row[idx.trackingNo],
+    cartons: row[idx.cartons],
+    company: row[idx.company],
+    actualWeight: row[idx.actualWeight],
+    volumeWeight: row[idx.volumeWeight],
+    chargeWeight: row[idx.chargeWeight],
+    ticketWeight: row[idx.ticketWeight],
+    route: row[idx.route],
+    country: row[idx.country],
+    unitPrice: row[idx.unitPrice],
+    otherFee: row[idx.otherFee],
+    remark: row[idx.remark],
+    warehouseCode: row[idx.warehouseCode]
+  })).filter(record => record.fbaOrderNo || record.trackingNo);
+}
+
+function mergeShipments(records) {
+  const map = new Map(state.shipments.map(record => [shipmentKey(record), record]));
+  records.forEach(record => {
+    const key = shipmentKey(record);
+    if (key !== "|") map.set(key, record);
+  });
+  state.shipments = [...map.values()];
+}
+
+function populateShipmentFilters() {
+  const setOptions = (id, values, label) => {
+    const current = $(id).value;
+    const options = ["", ...unique(values).sort((a, b) => String(a).localeCompare(String(b), "zh-CN"))];
+    $(id).innerHTML = options.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value || label)}</option>`).join("");
+    if (options.includes(current)) $(id).value = current;
+  };
+  setOptions("shipOperator", state.shipments.map(r => r.operator), "全部运营");
+  setOptions("shipCountry", state.shipments.map(r => r.country), "全部国家");
+  setOptions("shipRoute", state.shipments.map(r => r.route), "全部走货方式");
+  setOptions("shipCompany", state.shipments.map(r => r.company), "全部公司");
+  setOptions("shipWarehouse", state.shipments.map(r => r.warehouseCode), "全部仓库");
+}
+
+function filterShipments() {
+  const from = $("shipDateFrom").value;
+  const to = $("shipDateTo").value;
+  const operator = $("shipOperator").value;
+  const country = $("shipCountry").value;
+  const route = $("shipRoute").value;
+  const company = $("shipCompany").value;
+  const warehouse = $("shipWarehouse").value;
+  const keyword = $("shipKeyword").value.trim().toLowerCase();
+  state.filteredShipments = state.shipments.filter(record => {
+    const haystack = [record.batchNo, record.fbaOrderNo, record.trackingNo, record.remark, record.route, record.company].join(" ").toLowerCase();
+    return (!from || record.shipDate >= from)
+      && (!to || record.shipDate <= to)
+      && (!operator || record.operator === operator)
+      && (!country || record.country === country)
+      && (!route || record.route === route)
+      && (!company || record.company === company)
+      && (!warehouse || record.warehouseCode === warehouse)
+      && (!keyword || haystack.includes(keyword));
+  }).sort((a, b) => String(b.shipDate).localeCompare(String(a.shipDate)));
+  renderShipments();
+}
+
+function renderShipmentSummary(records) {
+  const cartons = records.reduce((sum, record) => sum + Number(record.cartons || 0), 0);
+  const weight = records.reduce((sum, record) => sum + Number(record.chargeWeight || 0), 0);
+  const cost = records.reduce((sum, record) => sum + Number(record.chargeWeight || 0) * Number(record.unitPrice || 0) + Number(record.otherFee || 0), 0);
+  $("shipTotal").textContent = records.length.toLocaleString("zh-CN");
+  $("shipCartons").textContent = cartons.toLocaleString("zh-CN");
+  $("shipWeight").textContent = `${Math.round(weight).toLocaleString("zh-CN")} kg`;
+  $("shipCost").textContent = currency(cost);
+}
+
+function renderShipments() {
+  renderShipmentSummary(state.filteredShipments);
+  $("shipmentSource").textContent = `${state.shipmentSource || "发货记录"} · ${state.shipments.length.toLocaleString("zh-CN")} 条`;
+  const visible = state.filteredShipments.slice(0, 300);
+  $("shipmentBody").innerHTML = visible.length ? visible.map(record => `
+    <tr>
+      <td>${escapeHtml(record.shipDate)}</td>
+      <td>${escapeHtml(record.batchNo)}</td>
+      <td>${escapeHtml(record.operator)}</td>
+      <td>${escapeHtml(record.fbaOrderNo)}</td>
+      <td>${escapeHtml(record.trackingNo)}</td>
+      <td>${record.cartons || ""}</td>
+      <td>${escapeHtml(record.company)}</td>
+      <td>${record.chargeWeight || ""}</td>
+      <td>${escapeHtml(record.route)}</td>
+      <td>${escapeHtml(record.country)}</td>
+      <td>${record.unitPrice || ""}</td>
+      <td>${escapeHtml(record.warehouseCode)}</td>
+      <td>${escapeHtml(record.remark)}</td>
+    </tr>
+  `).join("") : `<tr><td colspan="13" class="unavailable">没有匹配的发货记录。</td></tr>`;
+}
+
+async function handleShipmentImport(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  $("shipmentImportStatus").textContent = "正在导入发货数据...";
+  try {
+    const rows = file.name.toLowerCase().endsWith(".csv")
+      ? parseCsv(await file.text())
+      : await parseXlsx(await file.arrayBuffer());
+    const records = normalizeShipmentRows(rows);
+    mergeShipments(records);
+    state.shipmentSource = file.name;
+    persistShipments(file.name);
+    populateShipmentFilters();
+    filterShipments();
+    $("shipmentImportStatus").textContent = `已导入 ${records.length} 条，重复订单已按 FBA订单号 + 运单号 更新。`;
+  } catch (error) {
+    $("shipmentImportStatus").textContent = `导入失败：${error.message}`;
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function addManualShipment(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+  const record = normalizeShipment(data);
+  if (!record.fbaOrderNo || !record.trackingNo) {
+    $("shipmentImportStatus").textContent = "请填写 FBA订单号和运单号。";
+    return;
+  }
+  mergeShipments([record]);
+  state.shipmentSource = "本机手动维护";
+  persistShipments(state.shipmentSource);
+  populateShipmentFilters();
+  filterShipments();
+  event.currentTarget.reset();
+  $("shipmentImportStatus").textContent = "已保存 1 条发货记录。";
+}
+
+async function resetShipments() {
+  localStorage.removeItem(SHIPMENT_STORAGE_KEY);
+  const published = await loadPublishedShipments();
+  state.shipments = (published?.records || []).map(normalizeShipment);
+  state.shipmentSource = published?.sourceName || "默认发货记录";
+  populateShipmentFilters();
+  filterShipments();
+  $("shipmentImportStatus").textContent = "已恢复网站默认发货数据。";
+}
+
+async function bootstrapShipments() {
+  const stored = loadStoredShipments();
+  if (stored) {
+    state.shipments = stored.records.map(normalizeShipment);
+    state.shipmentSource = stored.sourceName || "本机发货记录";
+  } else {
+    const published = await loadPublishedShipments();
+    state.shipments = (published?.records || []).map(normalizeShipment);
+    state.shipmentSource = published?.sourceName || "默认发货记录";
+  }
+  populateShipmentFilters();
+  filterShipments();
+}
+
 function copyCsv() {
   const headers = ["排名", "物流方式", "渠道", "国家", "分区", "计费重量", "总费用", "平均/kg", "参考时效"];
   const lines = state.lastResults.map((row, index) => [index + 1, row.name, row.channel, row.country, row.zone || "", row.billWeight, Math.round(row.cost), Math.round(row.avg), row.eta]);
@@ -532,6 +786,20 @@ $("quoteForm").addEventListener("submit", event => {
   event.preventDefault();
   calculate();
 });
+$("shipmentFilters").addEventListener("submit", event => {
+  event.preventDefault();
+  filterShipments();
+});
+$("resetShipmentFilters").addEventListener("click", () => {
+  $("shipmentFilters").reset();
+  filterShipments();
+});
+$("shipmentFile").addEventListener("change", handleShipmentImport);
+$("toggleShipmentForm").addEventListener("click", () => {
+  $("manualShipmentForm").classList.toggle("hidden");
+});
+$("manualShipmentForm").addEventListener("submit", addManualShipment);
+$("resetShipments").addEventListener("click", resetShipments);
 
 const pageTitles = {
   freight: "运费查询",
@@ -570,6 +838,7 @@ async function bootstrap() {
   initOptions(false);
   renderRules();
   calculate();
+  await bootstrapShipments();
 }
 
 bootstrap();
