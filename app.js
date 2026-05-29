@@ -37,6 +37,7 @@ const state = {
   mode: "actual",
   channel: "all",
   rates: DEFAULT_RATES,
+  rateSignature: "",
   filteredCarrierRates: [],
   shipments: [],
   filteredShipments: [],
@@ -104,15 +105,47 @@ function loadStoredRates() {
 
 function persistRates(sourceName) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    const payload = JSON.stringify({
       sourceName,
       importedAt: new Date().toISOString(),
       rates: state.rates
-    }));
+    });
+    localStorage.setItem(STORAGE_KEY, payload);
+    state.rateSignature = getRateSignature(state.rates);
     return true;
   } catch {
     return false;
   }
+}
+
+function getRateSignature(rates) {
+  return JSON.stringify(rates.map(rate => [
+    rate.name,
+    rate.channel,
+    rate.country,
+    normalizeZone(rate.zone),
+    Number(rate.minWeight || 0),
+    Number(rate.stepWeight || 1),
+    Number(rate.unitPrice || 0),
+    Number(rate.fixedFee || 0),
+    Boolean(rate.taxIncluded),
+    rate.eta,
+    rate.surchargeText,
+    rate.note
+  ]));
+}
+
+function syncRatesFromCarrierManager() {
+  const stored = loadStoredRates();
+  if (!stored) return false;
+  const signature = getRateSignature(stored.rates);
+  if (signature === state.rateSignature) return false;
+  state.rates = stored.rates;
+  state.rateSignature = signature;
+  initOptions(true);
+  renderRules();
+  renderCarrierManager();
+  return true;
 }
 
 async function loadPublishedRates() {
@@ -248,6 +281,7 @@ function isRestricted(rate, attributeId) {
 }
 
 function calculate() {
+  syncRatesFromCarrierManager();
   const input = getInputs();
   const allResults = [...chooseTier(input).values()].map(rate => {
     const billWeight = Math.ceil(Math.max(input.chargeableWeight, rate.minWeight) / rate.stepWeight) * rate.stepWeight;
@@ -372,6 +406,7 @@ function importRows(rows, sourceName, shouldPersist) {
   const rates = normalizeTemplateRows(rows);
   if (!rates.length) throw new Error("没有识别到有效价格行");
   state.rates = rates;
+  state.rateSignature = getRateSignature(state.rates);
   state.channel = "all";
   const saved = shouldPersist ? persistRates(sourceName) : false;
   refreshFreightViews();
@@ -542,6 +577,7 @@ async function resetRates() {
   localStorage.removeItem(STORAGE_KEY);
   const published = await loadPublishedRates();
   state.rates = published?.rates || DEFAULT_RATES;
+  state.rateSignature = getRateSignature(state.rates);
   state.channel = "all";
   refreshFreightViews();
   setImportStatus(published ? `已恢复网站发布模板：${published.sourceName || "rates.json"}` : "已恢复内置模板数据。");
@@ -1087,14 +1123,17 @@ async function bootstrap() {
   const stored = loadStoredRates();
   if (stored) {
     state.rates = stored.rates;
+    state.rateSignature = getRateSignature(state.rates);
     setImportStatus(`当前使用本机已导入模板：${stored.sourceName || "未命名模板"}`);
   } else {
     const published = await loadPublishedRates();
     if (published) {
       state.rates = published.rates;
+      state.rateSignature = getRateSignature(state.rates);
       setImportStatus(`当前使用网站发布模板：${published.sourceName || "rates.json"}`);
     } else {
       state.rates = DEFAULT_RATES;
+      state.rateSignature = getRateSignature(state.rates);
       setImportStatus("当前使用内置模板。");
     }
   }
