@@ -144,9 +144,9 @@
               <span>可用渠道</span>
               <strong id="availableCount">0</strong>
             </div>
-            <div class="metric">
+            <div class="metric recommendation-metric">
               <span>推荐渠道</span>
-              <strong id="bestRoute">-</strong>
+              <div id="recommendationCards" class="recommendation-list"></div>
             </div>
             <div class="metric">
               <span>价格数据</span>
@@ -298,7 +298,10 @@
                 <label><span>其它费用</span><input name="otherFee" type="number" min="0" step="0.01"></label>
                 <label><span>仓库代码</span><input name="warehouseCode"></label>
                 <label class="wide"><span>备注</span><input name="remark"></label>
-                <button type="submit" class="calc-button wide">保存发货记录</button>
+                <div class="manual-form-actions wide">
+                  <button type="submit" id="manualShipmentSubmit" class="calc-button">保存发货记录</button>
+                  <button type="button" id="cancelShipmentEdit" class="text-button hidden">取消编辑</button>
+                </div>
               </form>
             </section>
 
@@ -320,6 +323,7 @@
                       <th>单价</th>
                       <th>仓库</th>
                       <th>备注</th>
+                      <th>操作</th>
                     </tr>
                   </thead>
               <tbody id="shipmentBody"></tbody>
@@ -363,6 +367,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=9"></script>
   </body>
 </html>
