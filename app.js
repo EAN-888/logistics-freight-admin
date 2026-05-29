@@ -23,6 +23,9 @@ const DEFAULT_RATES = [
 
 const STORAGE_KEY = "fba-freight-rates-v1";
 const SHIPMENT_STORAGE_KEY = "fba-shipment-records-v1";
+const VISITOR_STORAGE_KEY = "fba-visitor-records-v1";
+const VISITOR_PROFILE_KEY = "fba-visitor-profile-v1";
+const DEFAULT_CHANNEL_TABS = ["快递-实重", "快递-抛重", "空派", "海运", "快递", "铁路", "卡航"];
 
 const SURCHARGE_RULES = {
   battery: { label: "带电", perKg: 1, applies: rate => /带电\+?1/.test(rate.surchargeText) },
@@ -183,7 +186,7 @@ function updateZones(keepSelection = true) {
 }
 
 function updateTabs() {
-  const channels = ["all", ...unique(state.rates.map(rate => rate.channel))];
+  const channels = ["all", ...unique([...DEFAULT_CHANNEL_TABS, ...state.rates.map(rate => rate.channel)])];
   $("channelTabs").innerHTML = channels.map(channel => {
     const label = channel === "all" ? "全部" : channel;
     const active = channel === state.channel ? " active" : "";
@@ -405,12 +408,14 @@ async function handleImport(event) {
 function importRows(rows, sourceName, shouldPersist) {
   const rates = normalizeTemplateRows(rows);
   if (!rates.length) throw new Error("没有识别到有效价格行");
-  state.rates = rates;
+  const importedNames = new Set(rates.map(rate => String(rate.name || "").trim()).filter(Boolean));
+  const keptRates = state.rates.filter(rate => !importedNames.has(String(rate.name || "").trim()));
+  state.rates = [...keptRates, ...rates];
   state.rateSignature = getRateSignature(state.rates);
   state.channel = "all";
   const saved = shouldPersist ? persistRates(sourceName) : false;
   refreshFreightViews();
-  setImportStatus(`已导入 ${rates.length} 条价格，旧数据已清空并覆盖。${saved ? "已保存到本机浏览器。" : ""}`);
+  setImportStatus(`已导入 ${rates.length} 条价格，更新 ${importedNames.size} 个物流方式；同名物流方式已覆盖，不同物流方式已保留。${saved ? "已保存到本机浏览器。" : ""}`);
 }
 
 function normalizeTemplateRows(rows) {
@@ -989,26 +994,6 @@ async function handleTrackingImport(event) {
   }
 }
 
-async function handleTrackingImport(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  $("shipmentImportStatus").textContent = "正在导入运单号...";
-  try {
-    const rows = file.name.toLowerCase().endsWith(".csv")
-      ? parseCsv(await file.text())
-      : await parseXlsx(await file.arrayBuffer());
-    const result = updateShipmentTrackingNumbers(normalizeTrackingRows(rows));
-    persistShipments(state.shipmentSource || file.name);
-    populateShipmentFilters();
-    filterShipments();
-    $("shipmentImportStatus").textContent = `已读取 ${result.total} 条运单号，更新 ${result.updated} 条发货记录${result.missed ? `，${result.missed} 条未匹配` : ""}。`;
-  } catch (error) {
-    $("shipmentImportStatus").textContent = `导入失败：${error.message}`;
-  } finally {
-    event.target.value = "";
-  }
-}
-
 function setShipmentEditMode(record) {
   const form = $("manualShipmentForm");
   state.editingShipmentKey = record ? shipmentKey(record) : "";
@@ -1092,6 +1077,111 @@ function copyCsv() {
   navigator.clipboard?.writeText(csv);
   $("copyCsv").textContent = "已复制";
   setTimeout(() => $("copyCsv").textContent = "复制", 1200);
+}
+
+function getVisitorProfile() {
+  try {
+    return JSON.parse(localStorage.getItem(VISITOR_PROFILE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveVisitorProfile(profile) {
+  localStorage.setItem(VISITOR_PROFILE_KEY, JSON.stringify(profile));
+}
+
+function getVisitorRecords() {
+  try {
+    return JSON.parse(localStorage.getItem(VISITOR_STORAGE_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveVisitorRecords(records) {
+  localStorage.setItem(VISITOR_STORAGE_KEY, JSON.stringify(records.slice(-500)));
+}
+
+function getVisitorId() {
+  const profile = getVisitorProfile();
+  if (profile.visitorId) return profile.visitorId;
+  const visitorId = `V-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  saveVisitorProfile({ ...profile, visitorId });
+  return visitorId;
+}
+
+function recordVisit() {
+  const profile = getVisitorProfile();
+  const record = {
+    visitedAt: new Date().toLocaleString("zh-CN", { hour12: false }),
+    name: profile.name || "",
+    contact: profile.contact || "",
+    company: profile.company || "",
+    page: location.href,
+    userAgent: navigator.userAgent,
+    visitorId: getVisitorId()
+  };
+  const records = getVisitorRecords();
+  records.push(record);
+  saveVisitorRecords(records);
+  if (profile.endpoint) {
+    fetch(profile.endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(record)
+    }).catch(() => {});
+  }
+}
+
+function renderVisitors() {
+  if (!$("visitorBody")) return;
+  const profile = getVisitorProfile();
+  $("visitorName").value = profile.name || "";
+  $("visitorContact").value = profile.contact || "";
+  $("visitorCompany").value = profile.company || "";
+  $("visitorEndpoint").value = profile.endpoint || "";
+  const records = getVisitorRecords().slice().reverse();
+  $("visitorCount").textContent = `${records.length.toLocaleString("zh-CN")} 条访问记录`;
+  $("visitorBody").innerHTML = records.length ? records.map(record => `
+    <tr>
+      <td>${escapeHtml(record.visitedAt)}</td>
+      <td>${escapeHtml(record.name || "未填写")}</td>
+      <td>${escapeHtml(record.contact || "未填写")}</td>
+      <td>${escapeHtml(record.company || "未填写")}</td>
+      <td>${escapeHtml(record.page)}</td>
+      <td>${escapeHtml(record.userAgent)}</td>
+      <td>${escapeHtml(record.visitorId)}</td>
+    </tr>
+  `).join("") : `<tr><td colspan="7" class="unavailable">暂无访问记录。</td></tr>`;
+}
+
+function saveVisitorSettings(event) {
+  event.preventDefault();
+  const old = getVisitorProfile();
+  saveVisitorProfile({
+    ...old,
+    name: $("visitorName").value.trim(),
+    contact: $("visitorContact").value.trim(),
+    company: $("visitorCompany").value.trim(),
+    endpoint: $("visitorEndpoint").value.trim(),
+    visitorId: getVisitorId()
+  });
+  recordVisit();
+  renderVisitors();
+}
+
+function exportVisitors() {
+  const headers = ["访问时间", "访客名称", "联系方式", "公司", "页面", "浏览器", "访客ID"];
+  const rows = getVisitorRecords().map(record => [record.visitedAt, record.name, record.contact, record.company, record.page, record.userAgent, record.visitorId]);
+  const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell || "").replaceAll('"', '""')}"`).join(",")).join("\n");
+  const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `访客记录-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function csvCell(value) {
@@ -1183,91 +1273,6 @@ function exportShipmentData() {
   $("shipmentImportStatus").textContent = `已导出 ${rows.length.toLocaleString("zh-CN")} 条发货数据。`;
 }
 
-function downloadRateTemplate() {
-  downloadCsv("物流商价格导入模板.csv", [
-    "物流方式",
-    "渠道",
-    "国家名称",
-    "分区",
-    "起重重量(kg)",
-    "起重费用",
-    "续重重量(kg)",
-    "续重费用",
-    "含税",
-    "参考时效",
-    "附加费",
-    "备注"
-  ], [[
-    "示例物流-美国海派",
-    "海运",
-    "美国",
-    "美西",
-    "12",
-    "",
-    "1",
-    "13.8",
-    "是",
-    "16-18天提取",
-    "带电+1，带磁+1",
-    "示例行可删除"
-  ]]);
-  setImportStatus("已下载物流商价格导入模板。");
-}
-
-function downloadShipmentTemplate() {
-  downloadCsv("发货数据导入模板.csv", [
-    "发货日期",
-    "内部批次号",
-    "运营姓名",
-    "FBA订单号",
-    "运单号",
-    "箱数",
-    "所属公司",
-    "实际重量(KG)",
-    "体积重(KG)",
-    "物流计费重量(KG)",
-    "单票计费重(KG)",
-    "走货方式(物流商-渠道)",
-    "目的国家",
-    "计费单价",
-    "其它费用",
-    "仓库代码",
-    "备注"
-  ], [[
-    "2026-05-29",
-    "BATCH-001",
-    "张三",
-    "FBA123456",
-    "1Z999999",
-    "10",
-    "示例公司",
-    "120",
-    "130",
-    "130",
-    "130",
-    "示例物流-海运",
-    "美国",
-    "13.8",
-    "0",
-    "ONT8",
-    "示例行可删除"
-  ]]);
-  $("shipmentImportStatus").textContent = "已下载发货数据导入模板。";
-}
-
-function downloadTrackingTemplate() {
-  downloadCsv("运单号导入模板.csv", [
-    "内部批次号",
-    "FBA订单号",
-    "运单号"
-  ], [[
-    "BATCH-001",
-    "FBA123456",
-    "1Z999999"
-  ]]);
-  $("shipmentImportStatus").textContent = "已下载运单号导入模板。";
-}
-
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 }
@@ -1296,6 +1301,7 @@ $("resetCarrierFilters").addEventListener("click", () => {
   filterCarrierRates();
 });
 $("exportCarrierData").addEventListener("click", exportCarrierData);
+$("exportCarrierDataTop").addEventListener("click", exportCarrierData);
 $("carrierBody").addEventListener("click", event => {
   const button = event.target.closest("[data-edit-rate]");
   if (button) openCarrierEdit(Number(button.dataset.editRate));
@@ -1330,6 +1336,7 @@ $("resetShipmentFilters").addEventListener("click", () => {
   filterShipments();
 });
 $("exportShipmentData").addEventListener("click", exportShipmentData);
+$("exportShipmentDataTop").addEventListener("click", exportShipmentData);
 $("shipmentFile").addEventListener("change", handleShipmentImport);
 $("trackingFile").addEventListener("change", handleTrackingImport);
 $("toggleShipmentForm").addEventListener("click", () => {
@@ -1365,9 +1372,11 @@ $("shipmentNextPage").addEventListener("click", () => {
   state.shipmentPage += 1;
   renderShipments();
 });
+$("visitorSettingsForm").addEventListener("submit", saveVisitorSettings);
+$("exportVisitors").addEventListener("click", exportVisitors);
 
 const pageTitles = {
-  freight: "运费查询",
+  freight: "物流管理",
   carriers: "物流商管理",
   orders: "订单管理",
   tracking: "物流跟踪",
@@ -1388,6 +1397,8 @@ document.querySelectorAll(".nav-item").forEach(button => {
 
 async function bootstrap() {
   cleanShipmentCreateArea();
+  recordVisit();
+  renderVisitors();
   const stored = loadStoredRates();
   if (stored) {
     state.rates = stored.rates;
