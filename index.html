@@ -187,9 +187,128 @@
           </div>
         </section>
 
-        <section id="ordersPage" class="page-view placeholder-page">
-          <h2>订单管理</h2>
-          <p>页面预留，后续可接入订单导入、订单状态、异常件处理等功能。</p>
+        <section id="ordersPage" class="page-view">
+          <div class="orders-layout">
+            <section class="orders-tools">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Shipment Records</p>
+                  <h2>发货数据查询</h2>
+                </div>
+                <span id="shipmentSource" class="source-pill">加载中</span>
+              </div>
+
+              <div class="order-metrics">
+                <div class="metric compact"><span>发货票数</span><strong id="shipTotal">0</strong></div>
+                <div class="metric compact"><span>总箱数</span><strong id="shipCartons">0</strong></div>
+                <div class="metric compact"><span>计费重量</span><strong id="shipWeight">0 kg</strong></div>
+                <div class="metric compact"><span>预估运费</span><strong id="shipCost">¥0</strong></div>
+              </div>
+
+              <form id="shipmentFilters" class="shipment-filters">
+                <label>
+                  <span>起始日期</span>
+                  <input id="shipDateFrom" type="date">
+                </label>
+                <label>
+                  <span>结束日期</span>
+                  <input id="shipDateTo" type="date">
+                </label>
+                <label>
+                  <span>运营</span>
+                  <select id="shipOperator"></select>
+                </label>
+                <label>
+                  <span>目的国家</span>
+                  <select id="shipCountry"></select>
+                </label>
+                <label>
+                  <span>走货方式</span>
+                  <select id="shipRoute"></select>
+                </label>
+                <label>
+                  <span>所属公司</span>
+                  <select id="shipCompany"></select>
+                </label>
+                <label>
+                  <span>仓库代码</span>
+                  <select id="shipWarehouse"></select>
+                </label>
+                <label>
+                  <span>关键词</span>
+                  <input id="shipKeyword" type="search" placeholder="FBA订单号 / 运单号 / 批次号 / 备注">
+                </label>
+                <div class="filter-actions">
+                  <button type="submit" class="calc-button">查询</button>
+                  <button type="button" id="resetShipmentFilters" class="text-button">重置</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="orders-tools">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Create / Import</p>
+                  <h2>新增发货数据</h2>
+                </div>
+              </div>
+
+              <div class="shipment-actions">
+                <label class="file-button">
+                  <input id="shipmentFile" type="file" accept=".xlsx,.csv">
+                  批量导入发货数据
+                </label>
+                <button type="button" id="toggleShipmentForm" class="text-button">手动新增单条</button>
+                <button type="button" id="resetShipments" class="text-button">恢复默认数据</button>
+              </div>
+              <p id="shipmentImportStatus" class="import-status">批量导入将按 FBA订单号 + 运单号 去重更新。</p>
+
+              <form id="manualShipmentForm" class="manual-form hidden">
+                <label><span>发货日期</span><input name="shipDate" type="date" required></label>
+                <label><span>内部批次号</span><input name="batchNo"></label>
+                <label><span>运营姓名</span><input name="operator"></label>
+                <label><span>FBA订单号</span><input name="fbaOrderNo" required></label>
+                <label><span>运单号</span><input name="trackingNo" required></label>
+                <label><span>箱数</span><input name="cartons" type="number" min="0" step="1"></label>
+                <label><span>所属公司</span><input name="company"></label>
+                <label><span>实际重量 kg</span><input name="actualWeight" type="number" min="0" step="0.1"></label>
+                <label><span>体积重 kg</span><input name="volumeWeight" type="number" min="0" step="0.1"></label>
+                <label><span>计费重量 kg</span><input name="chargeWeight" type="number" min="0" step="0.1"></label>
+                <label><span>走货方式</span><input name="route"></label>
+                <label><span>目的国家</span><input name="country"></label>
+                <label><span>计费单价</span><input name="unitPrice" type="number" min="0" step="0.01"></label>
+                <label><span>其它费用</span><input name="otherFee" type="number" min="0" step="0.01"></label>
+                <label><span>仓库代码</span><input name="warehouseCode"></label>
+                <label class="wide"><span>备注</span><input name="remark"></label>
+                <button type="submit" class="calc-button wide">保存发货记录</button>
+              </form>
+            </section>
+
+            <section class="orders-tools wide-panel">
+              <div class="table-wrap">
+                <table class="shipment-table">
+                  <thead>
+                    <tr>
+                      <th>发货日期</th>
+                      <th>批次号</th>
+                      <th>运营</th>
+                      <th>FBA订单号</th>
+                      <th>运单号</th>
+                      <th>箱数</th>
+                      <th>公司</th>
+                      <th>计费重</th>
+                      <th>走货方式</th>
+                      <th>国家</th>
+                      <th>单价</th>
+                      <th>仓库</th>
+                      <th>备注</th>
+                    </tr>
+                  </thead>
+                  <tbody id="shipmentBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
         </section>
 
         <section id="trackingPage" class="page-view placeholder-page">
@@ -209,6 +328,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=5"></script>
+    <script src="app.js?v=6"></script>
   </body>
 </html>
