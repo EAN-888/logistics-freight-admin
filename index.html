@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>FBA 运费查询</title>
+    <title>物流管理</title>
     <meta http-equiv="Cache-Control" content="no-store">
-    <link rel="stylesheet" href="styles.css?v=20260529-export">
+    <link rel="stylesheet" href="styles.css?v=20260529-export2">
   </head>
   <body>
     <div class="admin-shell">
@@ -28,7 +28,7 @@
         <header class="topbar">
           <div>
             <p class="eyebrow">Logistics Console</p>
-            <h1 id="pageTitle">运费查询</h1>
+            <h1 id="pageTitle">物流管理</h1>
           </div>
           <div class="topbar-note">FBA 头程 / 快递 / 卡航价格对比</div>
         </header>
@@ -37,8 +37,8 @@
           <div class="workspace">
             <aside class="control-panel" aria-label="运费计算条件">
           <div class="brand-block">
-            <p class="eyebrow">FBA Freight Query</p>
-            <h2>运费查询</h2>
+            <p class="eyebrow">Logistics Management</p>
+            <h2>物流管理</h2>
             <p>按模板价格自动匹配国家、分区、重量档位与货物附加费，快速筛出更优头程方案。</p>
           </div>
 
@@ -200,6 +200,7 @@
                   <p class="eyebrow">Carrier Rate Management</p>
                   <h2>物流商管理</h2>
                 </div>
+                <button type="button" id="exportCarrierDataTop" class="text-button section-action">导出数据</button>
                 <span id="carrierRateCount" class="source-pill">加载中</span>
               </div>
 
@@ -213,7 +214,7 @@
                     <input id="templateFile" type="file" accept=".xlsx,.csv">
                     选择模板
                   </label>
-                  <button type="button" id="downloadRateTemplate" class="text-button">模板下载</button>
+                  <a href="templates/rate-template.xlsx" download="物流商价格导入模板.xlsx" class="text-button">模板下载</a>
                   <button type="button" id="resetRates" class="text-button">恢复默认</button>
                 </div>
                 <p id="importStatus" class="import-status">当前使用内置模板。</p>
@@ -304,6 +305,7 @@
                   <p class="eyebrow">Shipment Records</p>
                   <h2>发货数据查询</h2>
                 </div>
+                <button type="button" id="exportShipmentDataTop" class="text-button section-action">导出数据</button>
                 <span id="shipmentSource" class="source-pill">加载中</span>
               </div>
 
@@ -368,12 +370,12 @@
                   <input id="shipmentFile" type="file" accept=".xlsx,.csv">
                   批量导入发货数据
                 </label>
-                <button type="button" id="downloadShipmentTemplate" class="text-button">模板下载</button>
+                <a href="templates/shipment-template.xlsx" download="发货数据导入模板.xlsx" class="text-button">模板下载</a>
                 <label class="file-button">
                   <input id="trackingFile" type="file" accept=".xlsx,.csv">
                   批量导入运单号
                 </label>
-                <button type="button" id="downloadTrackingTemplate" class="text-button">模板下载</button>
+                <a href="templates/tracking-template.xlsx" download="运单号导入模板.xlsx" class="text-button">模板下载</a>
                 <button type="button" id="toggleShipmentForm" class="text-button">新增</button>
               </div>
               <p id="shipmentImportStatus" class="import-status">发货数据按 FBA订单号 + 运单号 去重；运单号模板只需批次号或FBA订单号、运单号。</p>
@@ -465,13 +467,64 @@
           <p>页面预留，后续可展示渠道费用、时效达成率和异常占比。</p>
         </section>
 
-        <section id="settingsPage" class="page-view placeholder-page">
-          <h2>系统设置</h2>
-          <p>页面预留，后续可维护账号、模板字段和计费参数。</p>
+        <section id="settingsPage" class="page-view">
+          <div class="orders-layout">
+            <section class="orders-tools">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Visitor Access</p>
+                  <h2>访问网站用户查询</h2>
+                </div>
+                <span id="visitorCount" class="source-pill">0 条访问记录</span>
+              </div>
+              <form id="visitorSettingsForm" class="shipment-filters">
+                <label>
+                  <span>访客名称</span>
+                  <input id="visitorName" placeholder="可填写公司/姓名">
+                </label>
+                <label>
+                  <span>联系方式</span>
+                  <input id="visitorContact" placeholder="手机号/微信/邮箱">
+                </label>
+                <label>
+                  <span>公司</span>
+                  <input id="visitorCompany" placeholder="访客公司">
+                </label>
+                <label>
+                  <span>后端接口</span>
+                  <input id="visitorEndpoint" placeholder="可选：访客记录API地址">
+                </label>
+                <div class="filter-actions">
+                  <button type="submit" class="calc-button">保存访客信息</button>
+                  <button type="button" id="exportVisitors" class="text-button">导出</button>
+                </div>
+              </form>
+              <p class="import-status">当前 GitHub Pages 为静态网站；未配置后端接口时，访客记录保存在访问者本机浏览器。配置接口后可集中留痕查询。</p>
+            </section>
+
+            <section class="orders-tools wide-panel">
+              <div class="table-wrap">
+                <table class="shipment-table">
+                  <thead>
+                    <tr>
+                      <th>访问时间</th>
+                      <th>访客名称</th>
+                      <th>联系方式</th>
+                      <th>公司</th>
+                      <th>页面</th>
+                      <th>浏览器</th>
+                      <th>访客ID</th>
+                    </tr>
+                  </thead>
+                  <tbody id="visitorBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
         </section>
       </main>
     </div>
 
-    <script src="app.js?v=16"></script>
+    <script src="app.js?v=17"></script>
   </body>
 </html>
