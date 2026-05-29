@@ -44,6 +44,7 @@ const state = {
   freightPageSize: 100,
   shipmentPage: 1,
   shipmentPageSize: 100,
+  editingShipmentKey: "",
   lastResults: []
 };
 
@@ -235,18 +236,18 @@ function isRestricted(rate, attributeId) {
 
 function calculate() {
   const input = getInputs();
-  const results = [...chooseTier(input).values()].map(rate => {
+  const allResults = [...chooseTier(input).values()].map(rate => {
     const billWeight = Math.ceil(Math.max(input.chargeableWeight, rate.minWeight) / rate.stepWeight) * rate.stepWeight;
     const surcharges = calcSurcharges(rate, input, billWeight);
     const blocked = surcharges.lines.some(line => line.blocked);
     const cost = billWeight * (rate.unitPrice + surcharges.perKgTotal) + surcharges.fixedTotal;
     return { ...rate, billWeight, cost, avg: cost / Math.max(input.chargeableWeight, 1), surchargeLines: surcharges.lines, blocked };
-  }).filter(row => state.channel === "all" || row.channel === state.channel)
-    .sort((a, b) => Number(a.blocked) - Number(b.blocked) || a.cost - b.cost);
+  }).sort((a, b) => Number(a.blocked) - Number(b.blocked) || a.cost - b.cost);
+  const results = allResults.filter(row => state.channel === "all" || row.channel === state.channel);
 
   state.lastResults = results;
   state.freightPage = 1;
-  renderSummary(results, input);
+  renderSummary(allResults, input);
   renderResults(results);
 }
 
@@ -256,8 +257,28 @@ function renderSummary(results, input) {
   $("chargeableWeight").textContent = `${input.chargeableWeight.toFixed(1)} kg`;
   $("bestCost").textContent = best ? currency(best.cost) : "-";
   $("availableCount").textContent = String(available.length);
-  $("bestRoute").textContent = best ? `${best.channel} · ${best.zone || best.country}` : "-";
+  renderRecommendations(available);
   $("rateCount").textContent = `${state.rates.length} 条价格`;
+}
+
+function renderRecommendations(available) {
+  const categories = [
+    { key: "海运", label: "海运", match: row => row.channel.includes("海运") },
+    { key: "快递", label: "快递", match: row => row.channel.includes("快递") },
+    { key: "空派", label: "空派", match: row => row.channel.includes("空派") }
+  ];
+  const picks = categories.map(category => {
+    const rows = available.filter(category.match).sort((a, b) => a.cost - b.cost);
+    return rows[0] ? { ...rows[0], category: category.label } : null;
+  }).filter(Boolean).sort((a, b) => a.cost - b.cost);
+
+  $("recommendationCards").innerHTML = picks.length ? picks.map(row => `
+    <div class="recommendation-card">
+      <span>${escapeHtml(row.category)}</span>
+      <strong>${currency(row.cost)}</strong>
+      <em>${escapeHtml(row.name)}</em>
+    </div>
+  `).join("") : `<div class="muted">暂无海运、快递、空派可推荐渠道</div>`;
 }
 
 function renderResults(results) {
@@ -712,8 +733,9 @@ function renderShipments() {
       <td>${record.unitPrice || ""}</td>
       <td>${escapeHtml(record.warehouseCode)}</td>
       <td>${escapeHtml(record.remark)}</td>
+      <td><button type="button" class="text-button table-action" data-shipment-edit="${escapeHtml(shipmentKey(record))}">编辑</button></td>
     </tr>
-  `).join("") : `<tr><td colspan="13" class="unavailable">没有匹配的发货记录。</td></tr>`;
+  `).join("") : `<tr><td colspan="14" class="unavailable">没有匹配的发货记录。</td></tr>`;
 }
 
 async function handleShipmentImport(event) {
@@ -738,6 +760,20 @@ async function handleShipmentImport(event) {
   }
 }
 
+function setShipmentEditMode(record) {
+  const form = $("manualShipmentForm");
+  state.editingShipmentKey = record ? shipmentKey(record) : "";
+  form.classList.toggle("hidden", false);
+  $("manualShipmentSubmit").textContent = record ? "保存修改" : "保存发货记录";
+  $("cancelShipmentEdit").classList.toggle("hidden", !record);
+  if (!record) return;
+  Object.entries(record).forEach(([key, value]) => {
+    if (form.elements[key]) form.elements[key].value = value || "";
+  });
+  form.scrollIntoView({ behavior: "smooth", block: "center" });
+  form.elements.shipDate?.focus();
+}
+
 function addManualShipment(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(event.currentTarget).entries());
@@ -746,13 +782,20 @@ function addManualShipment(event) {
     $("shipmentImportStatus").textContent = "请填写 FBA订单号和运单号。";
     return;
   }
+  const wasEditing = Boolean(state.editingShipmentKey);
+  if (wasEditing) {
+    state.shipments = state.shipments.filter(item => shipmentKey(item) !== state.editingShipmentKey);
+  }
   mergeShipments([record]);
   state.shipmentSource = "本机手动维护";
   persistShipments(state.shipmentSource);
   populateShipmentFilters();
   filterShipments();
   event.currentTarget.reset();
-  $("shipmentImportStatus").textContent = "已保存 1 条发货记录。";
+  state.editingShipmentKey = "";
+  $("manualShipmentSubmit").textContent = "保存发货记录";
+  $("cancelShipmentEdit").classList.add("hidden");
+  $("shipmentImportStatus").textContent = wasEditing ? "已保存发货记录修改。" : "已保存 1 条发货记录。";
 }
 
 async function resetShipments() {
@@ -834,9 +877,31 @@ $("resetShipmentFilters").addEventListener("click", () => {
 });
 $("shipmentFile").addEventListener("change", handleShipmentImport);
 $("toggleShipmentForm").addEventListener("click", () => {
-  $("manualShipmentForm").classList.toggle("hidden");
+  const form = $("manualShipmentForm");
+  const willShow = form.classList.contains("hidden");
+  if (willShow) {
+    setShipmentEditMode(null);
+  } else {
+    state.editingShipmentKey = "";
+    form.reset();
+    $("manualShipmentSubmit").textContent = "保存发货记录";
+    $("cancelShipmentEdit").classList.add("hidden");
+    form.classList.add("hidden");
+  }
 });
 $("manualShipmentForm").addEventListener("submit", addManualShipment);
+$("cancelShipmentEdit").addEventListener("click", () => {
+  state.editingShipmentKey = "";
+  $("manualShipmentForm").reset();
+  $("manualShipmentSubmit").textContent = "保存发货记录";
+  $("cancelShipmentEdit").classList.add("hidden");
+});
+$("shipmentBody").addEventListener("click", event => {
+  const button = event.target.closest("[data-shipment-edit]");
+  if (!button) return;
+  const record = state.shipments.find(item => shipmentKey(item) === button.dataset.shipmentEdit);
+  if (record) setShipmentEditMode(record);
+});
 $("resetShipments").addEventListener("click", resetShipments);
 $("shipmentPageSize").addEventListener("change", event => {
   state.shipmentPageSize = Number(event.target.value) || 100;
