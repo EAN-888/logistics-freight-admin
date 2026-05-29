@@ -386,7 +386,7 @@ select:focus {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -410,6 +410,47 @@ select:focus {
   display: block;
   font-size: 22px;
   line-height: 1.2;
+}
+
+.recommendation-metric {
+  grid-column: span 2;
+}
+
+.recommendation-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.recommendation-card {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.recommendation-card span {
+  margin-bottom: 6px;
+  color: var(--green);
+  font-weight: 700;
+}
+
+.recommendation-card strong {
+  margin-bottom: 6px;
+  font-size: 18px;
+  color: var(--green-dark);
+}
+
+.recommendation-card em {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .toolbar {
@@ -665,10 +706,28 @@ tr.best-row td {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
 }
 
 .manual-form .wide {
   grid-column: span 2;
+}
+
+.manual-form-actions {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(88px, auto);
+  gap: 8px;
+  align-items: end;
+}
+
+.manual-form-actions .calc-button {
+  margin-top: 0;
+}
+
+.table-action {
+  min-height: 30px;
+  padding: 5px 10px;
+  white-space: nowrap;
 }
 
 .wide-panel {
@@ -676,7 +735,7 @@ tr.best-row td {
 }
 
 .shipment-table {
-  min-width: 1500px;
+  min-width: 1580px;
 }
 
 .shipment-table td,
@@ -739,6 +798,10 @@ tr.best-row td {
     grid-column: span 3;
   }
 
+  .manual-form {
+    grid-template-columns: repeat(3, minmax(130px, 1fr));
+  }
+
   .control-panel {
     position: static;
   }
@@ -768,10 +831,13 @@ tr.best-row td {
   .rule-grid,
   .order-metrics,
   .shipment-filters,
-  .manual-form,
   .shipment-actions,
   .quote-form {
     grid-template-columns: 1fr;
+  }
+
+  .manual-form {
+    grid-template-columns: repeat(2, minmax(130px, 1fr));
   }
 
   .quote-form .import-box,
