@@ -121,8 +121,8 @@ select {
 
 .workspace {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 1fr;
+  gap: 12px;
   align-items: start;
 }
 
@@ -135,15 +135,12 @@ select {
 }
 
 .control-panel {
-  position: sticky;
-  top: 24px;
-  padding: 22px;
+  padding: 14px;
 }
 
 .brand-block {
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 12px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
 }
 
 .eyebrow {
@@ -180,7 +177,32 @@ h2 {
 
 .quote-form {
   display: grid;
-  gap: 14px;
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.quote-form .import-box {
+  grid-column: span 6;
+}
+
+.quote-form .field-grid,
+.quote-form .field-grid.three,
+.quote-form .volume-fields {
+  display: contents;
+}
+
+.quote-form .volume-fields.hidden {
+  display: none;
+}
+
+.quote-form .segmented,
+.quote-form .toggle-list {
+  grid-column: span 2;
+}
+
+.quote-form .calc-button {
+  align-self: end;
 }
 
 .import-box {
@@ -336,7 +358,7 @@ select:focus {
 
 .toggle-list {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -409,6 +431,36 @@ table {
   min-width: 1120px;
   border-collapse: collapse;
   background: #fff;
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.page-size-control,
+.pager-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.page-size-control select {
+  width: 88px;
+  min-height: 34px;
+}
+
+.pager-actions .text-button {
+  min-width: 76px;
 }
 
 th,
@@ -668,8 +720,18 @@ tr.best-row td {
 
   .order-metrics,
   .shipment-filters,
-  .manual-form {
+  .manual-form,
+  .quote-form {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .quote-form .import-box {
+    grid-column: span 3;
+  }
+
+  .quote-form .segmented,
+  .quote-form .toggle-list {
+    grid-column: span 3;
   }
 
   .filter-actions,
@@ -707,8 +769,20 @@ tr.best-row td {
   .order-metrics,
   .shipment-filters,
   .manual-form,
-  .shipment-actions {
+  .shipment-actions,
+  .quote-form {
     grid-template-columns: 1fr;
+  }
+
+  .quote-form .import-box,
+  .quote-form .segmented,
+  .quote-form .toggle-list {
+    grid-column: span 1;
+  }
+
+  .pager {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .manual-form .wide {
